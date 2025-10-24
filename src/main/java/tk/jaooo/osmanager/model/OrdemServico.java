@@ -28,10 +28,10 @@ public class OrdemServico {
     @Column(length = 50)
     private String patrimonio;
 
-    @Column(name = "defeito_original", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "defeito_original", nullable = false)
     private String defeitoOriginal;
 
-    @Column(name = "descricao_original", columnDefinition = "TEXT")
+    @Column(name = "descricao_original")
     private String descricaoOriginal;
 
     @CreationTimestamp

@@ -29,7 +29,7 @@ public class Reparo {
     @JoinColumn(name = "id_tecnico", nullable = false)
     private Tecnico tecnico;
 
-    @Column(name = "descricao_reparo", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "descricao_reparo", nullable = false)
     private String descricaoReparo;
 
     @CreationTimestamp

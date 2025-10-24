@@ -1,8 +1,8 @@
 package tk.jaooo.osmanager.repository;
 
-import tk.jaooo.osmanager.model.Tecnico;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import tk.jaooo.osmanager.model.Tecnico;
 
 import java.util.Optional;
 
