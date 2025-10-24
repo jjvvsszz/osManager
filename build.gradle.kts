@@ -28,6 +28,8 @@ dependencies {
     implementation("com.oracle.database.security:osdt_cert:21.19.0.0")
     implementation("com.oracle.database.security:osdt_core:21.19.0.0")
     implementation("org.projectlombok:lombok")
+    compileOnly ("org.projectlombok:lombok")
+    annotationProcessor ("org.projectlombok:lombok")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
