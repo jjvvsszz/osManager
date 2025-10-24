@@ -12,5 +12,5 @@ public interface ReparoRepository extends JpaRepository<Reparo, Long> {
 
     List<Reparo> findByTecnicoId(Long tecnicoId);
 
-    //List<Reparo> fundByPatrimonio(String patrimonio);
+    List<Reparo> findByOrdemServicoPatrimonio(String patrimonio);
 }
