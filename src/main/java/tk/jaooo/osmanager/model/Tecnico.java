@@ -27,12 +27,12 @@ public class Tecnico {
     private String username;
 
     @Column(name = "password_hash", nullable = false)
-    private String passwordHash; // O hash da senha
+    private String passwordHash;
 
     @Column(name = "is_estagiario", nullable = false)
     private boolean isEstagiario;
 
-    @CreationTimestamp // Preenchido automaticamente na criação
+    @CreationTimestamp
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
 }
