@@ -1,5 +1,6 @@
 package tk.jaooo.osmanager.services;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tk.jaooo.osmanager.exception.ResourceNotFoundException;
 import tk.jaooo.osmanager.model.Tecnico;
@@ -11,11 +12,11 @@ import java.util.List;
 public class TecnicoService {
 
     private final TecnicoRepository tecnicoRepository;
-    // TODO: Habilitar criptografia de senha
-    // private final PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    public TecnicoService(TecnicoRepository tecnicoRepository) {
+    public TecnicoService(TecnicoRepository tecnicoRepository, PasswordEncoder passwordEncoder) {
         this.tecnicoRepository = tecnicoRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<Tecnico> listarTodos() {
@@ -32,8 +33,7 @@ public class TecnicoService {
             throw new IllegalArgumentException("Username '" + tecnico.getUsername() + "' já está em uso.");
         });
 
-        // TODO: Habilitar criptografia de senha
-        // tecnico.setPasswordHash(passwordEncoder.encode(tecnico.getPasswordHash()));
+        tecnico.setPasswordHash(passwordEncoder.encode(tecnico.getPasswordHash()));
 
         return tecnicoRepository.save(tecnico);
     }
