@@ -8,7 +8,7 @@ import java.util.List;
 
 @Repository
 public interface OrdemServicoRepository extends JpaRepository<OrdemServico, Long> {
-    List<OrdemServico> findByPatrimonio(String patrimonio);
+    List<OrdemServico> findByEquipamentoPatrimonio(String patrimonio);
 
     List<OrdemServico> findByNumeroOs(String numeroOs);
 

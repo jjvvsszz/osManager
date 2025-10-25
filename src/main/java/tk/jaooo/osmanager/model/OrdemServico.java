@@ -24,8 +24,9 @@ public class OrdemServico {
     @Column(name = "numero_os", nullable = false, unique = true, length = 20)
     private String numeroOs;
 
-    @Column(length = 50)
-    private String patrimonio;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_equipamento", nullable = false)
+    private Equipamento equipamento;
 
     @Column(name = "defeito_original", nullable = false)
     private String defeitoOriginal;
