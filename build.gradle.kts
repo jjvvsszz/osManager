@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "tk.jaooo"
-version = "0.0.1-SNAPSHOT"
+version = "v1.0"
 description = "osManager"
 
 java {
