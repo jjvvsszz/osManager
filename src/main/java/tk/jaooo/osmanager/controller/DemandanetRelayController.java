@@ -57,7 +57,7 @@ public class DemandanetRelayController {
             HttpRequest.BodyPublisher bodyPublisher;
 
             if (request.getContentType() != null && request.getContentType().contains("multipart/form-data")) {
-                String boundary = "----WebKitFormBoundary" + UUID.randomUUID().toString();
+                String boundary = "----WebKitFormBoundary" + UUID.randomUUID();
                 requestBuilder.header("Content-Type", "multipart/form-data; boundary=" + boundary);
 
                 List<byte[]> byteArrays = new ArrayList<>();
