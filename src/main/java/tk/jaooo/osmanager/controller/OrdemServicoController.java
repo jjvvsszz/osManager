@@ -29,8 +29,6 @@ public class OrdemServicoController {
 
     @PostMapping
     public ResponseEntity<OrdemServico> abrirOrdemServico(@RequestBody OrdemServico os) {
-        // A lógica de negócio para associar o equipamento já deve vir no corpo da requisição.
-        // O front-end enviará algo como: { "equipamento": { "id": 123 }, "defeitoOriginal": "Não liga" }
         OrdemServico novaOs = ordemServicoService.abrirOrdemServico(os);
         return ResponseEntity.ok(novaOs);
     }
@@ -39,5 +37,11 @@ public class OrdemServicoController {
     public ResponseEntity<OrdemServico> atualizarOrdemServico(@PathVariable Long id, @RequestBody OrdemServico dadosOs) {
         OrdemServico osAtualizada = ordemServicoService.atualizarOrdemServico(id, dadosOs);
         return ResponseEntity.ok(osAtualizada);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<OrdemServico> removerOrdemServico(@PathVariable Long id) {
+        ordemServicoService.deletarOrdemServico(id);
+        return ResponseEntity.noContent().build();
     }
 }

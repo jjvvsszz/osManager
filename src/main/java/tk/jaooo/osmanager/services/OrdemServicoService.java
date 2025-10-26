@@ -27,6 +27,7 @@ public class OrdemServicoService {
     }
 
     public OrdemServico abrirOrdemServico(OrdemServico os) {
+        os.setDataEntrada(LocalDate.now());
         os.setDataSaida(null);
         return ordemServicoRepository.save(os);
     }
@@ -41,5 +42,11 @@ public class OrdemServicoService {
         osExistente.setDataEntrada(dadosOs.getDataEntrada());
 
         return ordemServicoRepository.save(osExistente);
+    }
+
+    public void deletarOrdemServico(Long id) {
+        OrdemServico os = ordemServicoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("OS não encontrado com o ID: " + id));
+        ordemServicoRepository.delete(os);
     }
 }
