@@ -1,6 +1,7 @@
 package tk.jaooo.osmanager.services;
 
 import org.springframework.stereotype.Service;
+import tk.jaooo.osmanager.exception.ResourceNotFoundException;
 import tk.jaooo.osmanager.model.OrdemServico;
 import tk.jaooo.osmanager.model.Reparo;
 import tk.jaooo.osmanager.model.Tecnico;
@@ -23,7 +24,6 @@ public class ReparoService {
 
     public Reparo adicionarReparo(Long osId, Long tecnicoId, String descricaoReparo) {
         OrdemServico os = ordemServicoService.buscarPorId(osId);
-
         Tecnico tecnico = tecnicoService.buscarPorId(tecnicoId);
 
         Reparo novoReparo = Reparo.builder()
@@ -37,11 +37,28 @@ public class ReparoService {
 
     public List<Reparo> listarReparosPorOrdemServico(Long osId) {
         ordemServicoService.buscarPorId(osId);
-        return reparoRepository.findByOrdemServicoId(osId);
+        return reparoRepository.findByOrdemServico_Id(osId);
     }
 
     public List<Reparo> listarReparosPorTecnico(Long tecnicoId) {
         tecnicoService.buscarPorId(tecnicoId);
-        return reparoRepository.findByTecnicoId(tecnicoId);
+        return reparoRepository.findByTecnico_Id(tecnicoId);
+    }
+
+    public Reparo atualizarReparo(Long reparoId, Long novoTecnicoId, String novaDescricao) {
+        Reparo reparoExistente = reparoRepository.findById(reparoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reparo não encontrado com o ID: " + reparoId));
+
+        Tecnico novoTecnico = tecnicoService.buscarPorId(novoTecnicoId);
+
+        reparoExistente.setTecnico(novoTecnico);
+        reparoExistente.setDescricaoReparo(novaDescricao);
+        return reparoRepository.save(reparoExistente);
+    }
+
+    public void deletarReparo(Long reparoId) {
+        Reparo reparo = reparoRepository.findById(reparoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reparo não encontrado com o ID: " + reparoId));
+        reparoRepository.delete(reparo);
     }
 }

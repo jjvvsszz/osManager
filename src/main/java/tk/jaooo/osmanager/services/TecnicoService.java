@@ -12,11 +12,9 @@ import java.util.List;
 public class TecnicoService {
 
     private final TecnicoRepository tecnicoRepository;
-    private final PasswordEncoder passwordEncoder;
 
-    public TecnicoService(TecnicoRepository tecnicoRepository, PasswordEncoder passwordEncoder) {
+    public TecnicoService(TecnicoRepository tecnicoRepository) {
         this.tecnicoRepository = tecnicoRepository;
-        this.passwordEncoder = passwordEncoder;
     }
 
     public List<Tecnico> listarTodos() {
@@ -29,13 +27,18 @@ public class TecnicoService {
     }
 
     public Tecnico criarTecnico(Tecnico tecnico) {
-        tecnicoRepository.findByUsername(tecnico.getUsername()).ifPresent(t -> {
-            throw new IllegalArgumentException("Username '" + tecnico.getUsername() + "' já está em uso.");
-        });
-
-        tecnico.setPasswordHash(passwordEncoder.encode(tecnico.getPasswordHash()));
+        if (tecnicoRepository.findByNome(tecnico.getNome()).isPresent()) {
+            throw new IllegalArgumentException("Já existe um técnico com o nome: " + tecnico.getNome());
+        }
 
         return tecnicoRepository.save(tecnico);
+    }
+
+    public Tecnico atualizarTecnico(Long id, Tecnico dadosTecnico) {
+        Tecnico tecnicoExistente = buscarPorId(id);
+        tecnicoExistente.setNome(dadosTecnico.getNome());
+        tecnicoExistente.setEstagiario(dadosTecnico.isEstagiario());
+        return tecnicoRepository.save(tecnicoExistente);
     }
 
     public void deletarTecnico(Long id) {

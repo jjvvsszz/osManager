@@ -1,16 +1,18 @@
 package tk.jaooo.osmanager.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.List;
 
-@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
 @Setter
+@ToString(exclude = "ordensServico")
+@EqualsAndHashCode(exclude = "ordensServico")
 @Entity
 @Table(name = "EQUIPAMENTOS")
 public class Equipamento {
@@ -35,5 +37,6 @@ public class Equipamento {
     private String modelo;
 
     @OneToMany(mappedBy = "equipamento", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @JsonManagedReference("equipamento-os")
     private List<OrdemServico> ordensServico;
 }

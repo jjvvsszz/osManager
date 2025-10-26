@@ -31,11 +31,15 @@ public class OrdemServicoService {
         return ordemServicoRepository.save(os);
     }
 
-    public OrdemServico finalizarOrdemServico(Long id) {
-        OrdemServico os = buscarPorId(id);
+    public OrdemServico atualizarOrdemServico(Long id, OrdemServico dadosOs) {
+        OrdemServico osExistente = buscarPorId(id);
 
-        os.setDataSaida(LocalDate.now());
+        osExistente.setNumeroOs(dadosOs.getNumeroOs());
+        osExistente.setDefeitoOriginal(dadosOs.getDefeitoOriginal());
+        osExistente.setDescricaoOriginal(dadosOs.getDescricaoOriginal());
+        osExistente.setDataSaida(dadosOs.getDataSaida());
+        osExistente.setDataEntrada(dadosOs.getDataEntrada());
 
-        return ordemServicoRepository.save(os);
+        return ordemServicoRepository.save(osExistente);
     }
 }

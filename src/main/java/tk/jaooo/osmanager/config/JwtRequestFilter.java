@@ -4,53 +4,77 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tk.jaooo.osmanager.model.DemandanetSessionDetails;
 import tk.jaooo.osmanager.services.JwtUtil;
 
 import java.io.IOException;
+import java.util.Collections;
 
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
 
-    private final UserDetailsService userDetailsService;
+    private static final Logger logger = LoggerFactory.getLogger(JwtRequestFilter.class);
+
     private final JwtUtil jwtUtil;
 
-    public JwtRequestFilter(UserDetailsService userDetailsService, JwtUtil jwtUtil) {
-        this.userDetailsService = userDetailsService;
+    public JwtRequestFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain chain)
             throws ServletException, IOException {
 
-        final String authorizationHeader = request.getHeader("Authorization");
-
-        String username = null;
-        String jwt = null;
-
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            username = jwtUtil.extractUsername(jwt);
+        if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            chain.doFilter(request, response);
+            return;
         }
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
 
-            if (jwtUtil.validateToken(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-                usernamePasswordAuthenticationToken
-                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        jwt = authHeader.substring(7);
+
+        try {
+            if (jwtUtil.validateToken(jwt)) {
+                String sessionCookie = jwtUtil.extractSessionCookie(jwt);
+                String idEscola = jwtUtil.extractIdEscola(jwt);
+
+                DemandanetSessionDetails sessionDetails = new DemandanetSessionDetails(sessionCookie, idEscola);
+
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        sessionDetails,
+                        null,
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_ACTIVE_SESSION"))
+                );
+
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+                logger.debug("Sessão do Demandanet validada e contexto de segurança populado para idEscola: {}", idEscola);
+            } else {
+                logger.warn("Token JWT recebido é inválido ou expirado.");
             }
+        } catch (Exception e) {
+            logger.error("Erro ao processar o token JWT: {}", e.getMessage());
         }
+
         chain.doFilter(request, response);
     }
 }

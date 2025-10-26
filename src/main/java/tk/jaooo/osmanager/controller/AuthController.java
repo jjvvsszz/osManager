@@ -1,41 +1,61 @@
 package tk.jaooo.osmanager.controller;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value; // <-- IMPORT NECESSÁRIO
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tk.jaooo.osmanager.model.AuthenticationRequest;
 import tk.jaooo.osmanager.model.AuthenticationResponse;
+import tk.jaooo.osmanager.model.DemandanetAuthRequest;
+import tk.jaooo.osmanager.services.DemandanetClientService;
 import tk.jaooo.osmanager.services.JwtUtil;
 
 @RestController
 @RequestMapping("/api")
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
-    private final UserDetailsService userDetailsService;
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+
+    private final DemandanetClientService demandanetClientService;
     private final JwtUtil jwtUtil;
 
-    public AuthController(AuthenticationManager authenticationManager, UserDetailsService userDetailsService, JwtUtil jwtUtil) {
-        this.authenticationManager = authenticationManager;
-        this.userDetailsService = userDetailsService;
+    @Value("${demandanet.idescola}")
+    private String idEscola;
+
+    public AuthController(DemandanetClientService demandanetClientService, JwtUtil jwtUtil) {
+        this.demandanetClientService = demandanetClientService;
         this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthenticationRequest authenticationRequest) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(authenticationRequest.getUsername(), authenticationRequest.getPassword())
-        );
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody DemandanetAuthRequest authRequest) {
+        logger.info("Tentativa de autenticação para o usuário: {}", authRequest.getUsername());
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(authenticationRequest.getUsername());
-        final String jwt = jwtUtil.generateToken(userDetails);
+        try {
+            String sessionCookie = demandanetClientService.loginAndGetSessionCookie(
+                    authRequest.getUsername(),
+                    authRequest.getPassword()
+            ).block();
 
-        return ResponseEntity.ok(new AuthenticationResponse(jwt));
+            if (sessionCookie == null || sessionCookie.isEmpty()) {
+                throw new RuntimeException("Não foi possível obter o cookie de sessão do Demandanet.");
+            }
+
+            logger.info("Login no Demandanet bem-sucedido para o idEscola configurado: {}", idEscola);
+
+            final String jwt = jwtUtil.generateTokenForDemandanetSession(sessionCookie, this.idEscola);
+
+            return ResponseEntity.ok(new AuthenticationResponse(jwt));
+
+        } catch (Exception e) {
+            logger.error("Falha na autenticação com o Demandanet para o usuário: {}. Erro: {}", authRequest.getUsername(), e.getMessage());
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("Falha na autenticação: Verifique as credenciais do Demandanet ou o serviço pode estar indisponível.");
+        }
     }
 }

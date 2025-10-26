@@ -23,12 +23,6 @@ public class Tecnico {
     @Column(nullable = false, length = 150)
     private String nome;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String username;
-
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-
     @Column(name = "is_estagiario", nullable = false)
     private boolean isEstagiario;
 

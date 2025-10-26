@@ -3,7 +3,8 @@ package tk.jaooo.osmanager.model;
 import lombok.Data;
 
 @Data
-public class AuthenticationRequest {
+public class DemandanetAuthRequest {
     private String username;
     private String password;
+    private String idEscola;
 }

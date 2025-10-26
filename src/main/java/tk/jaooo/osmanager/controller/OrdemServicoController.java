@@ -1,0 +1,43 @@
+package tk.jaooo.osmanager.controller;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import tk.jaooo.osmanager.model.OrdemServico;
+import tk.jaooo.osmanager.services.OrdemServicoService;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/os")
+public class OrdemServicoController {
+
+    private final OrdemServicoService ordemServicoService;
+
+    public OrdemServicoController(OrdemServicoService ordemServicoService) {
+        this.ordemServicoService = ordemServicoService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<OrdemServico>> listarTodas() {
+        return ResponseEntity.ok(ordemServicoService.listarTodas());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<OrdemServico> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(ordemServicoService.buscarPorId(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<OrdemServico> abrirOrdemServico(@RequestBody OrdemServico os) {
+        // A lógica de negócio para associar o equipamento já deve vir no corpo da requisição.
+        // O front-end enviará algo como: { "equipamento": { "id": 123 }, "defeitoOriginal": "Não liga" }
+        OrdemServico novaOs = ordemServicoService.abrirOrdemServico(os);
+        return ResponseEntity.ok(novaOs);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<OrdemServico> atualizarOrdemServico(@PathVariable Long id, @RequestBody OrdemServico dadosOs) {
+        OrdemServico osAtualizada = ordemServicoService.atualizarOrdemServico(id, dadosOs);
+        return ResponseEntity.ok(osAtualizada);
+    }
+}

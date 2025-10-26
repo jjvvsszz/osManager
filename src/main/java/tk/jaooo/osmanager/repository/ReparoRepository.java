@@ -8,9 +8,10 @@ import java.util.List;
 
 @Repository
 public interface ReparoRepository extends JpaRepository<Reparo, Long> {
-    List<Reparo> findByOrdemServicoId(Long ordemServicoId);
 
-    List<Reparo> findByTecnicoId(Long tecnicoId);
+    List<Reparo> findByOrdemServico_Id(Long ordemServicoId);
 
-    List<Reparo> findByOrdemServicoEquipamentoPatrimonio(String patrimonio);
+    List<Reparo> findByTecnico_Id(Long tecnicoId);
+
+    List<Reparo> findByOrdemServico_Equipamento_Patrimonio(String patrimonio);
 }
