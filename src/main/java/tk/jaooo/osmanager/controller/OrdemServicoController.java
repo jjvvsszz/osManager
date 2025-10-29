@@ -40,7 +40,7 @@ public class OrdemServicoController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<OrdemServico> removerOrdemServico(@PathVariable Long id) {
+    public ResponseEntity<Void> deletarOrdemServico(@PathVariable Long id) {
         ordemServicoService.deletarOrdemServico(id);
         return ResponseEntity.noContent().build();
     }
