@@ -1,6 +1,5 @@
 package tk.jaooo.osmanager.services;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import tk.jaooo.osmanager.exception.ResourceNotFoundException;
 import tk.jaooo.osmanager.model.Tecnico;

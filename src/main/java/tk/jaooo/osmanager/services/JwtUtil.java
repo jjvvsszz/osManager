@@ -67,7 +67,6 @@ public class JwtUtil {
         claims.put(SESSION_COOKIE_CLAIM, sessionCookie);
         claims.put(ID_ESCOLA_CLAIM, idEscola);
 
-        // O "subject" agora pode ser o idEscola, pois identifica o contexto da sessão.
         return createToken(claims, idEscola);
     }
 
