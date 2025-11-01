@@ -104,7 +104,7 @@ public class DemandanetRelayController {
             return URI.create(demandanetBaseUrl + originalPath + queryString);
         }
 
-        return UriComponentsBuilder.fromHttpUrl(demandanetBaseUrl)
+        return UriComponentsBuilder.fromUriString(demandanetBaseUrl)
                 .path(originalPath)
                 .queryParam("idEscola", idEscola)
                 .query(request.getQueryString())
