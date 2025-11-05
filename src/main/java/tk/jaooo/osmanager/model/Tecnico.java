@@ -24,6 +24,9 @@ public class Tecnico {
     @Column(name = "is_estagiario", nullable = false)
     private boolean isEstagiario;
 
+    @Column(name = "is_removido", nullable = false)
+    private boolean isRemovido = false;
+
     @CreationTimestamp
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;

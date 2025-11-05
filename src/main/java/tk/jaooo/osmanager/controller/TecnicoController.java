@@ -44,4 +44,10 @@ public class TecnicoController {
         tecnicoService.deletarTecnico(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<Tecnico> restaurarTecnico(@PathVariable Long id) {
+        Tecnico tecnicoRestaurado = tecnicoService.restaurarTecnico(id);
+        return ResponseEntity.ok(tecnicoRestaurado);
+    }
 }
