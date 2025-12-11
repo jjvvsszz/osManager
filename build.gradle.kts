@@ -22,34 +22,41 @@ repositories {
 extra["snippetsDir"] = file("build/generated-snippets")
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-configuration-processor")
+    implementation("org.springframework.boot:spring-boot-starter-restclient")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+
+    // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
-    testImplementation("org.springframework.restdocs:spring-restdocs-webtestclient")
-    "developmentOnly"("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("org.springframework.boot:spring-boot-configuration-processor")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+
+    // Database
+    implementation("com.oracle.database.jdbc:ojdbc11")
     implementation("com.oracle.database.security:oraclepki:23.9.0.25.07")
     implementation("com.oracle.database.security:osdt_cert:21.19.0.0")
     implementation("com.oracle.database.security:osdt_core:21.19.0.0")
-    implementation("org.projectlombok:lombok")
-    compileOnly ("org.projectlombok:lombok")
-    annotationProcessor ("org.projectlombok:lombok")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+
+    // Lombok & Jackson
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-hibernate7")
+
+    // --- DEPENDÊNCIAS DE TESTE ---
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
-    runtimeOnly("com.oracle.database.jdbc:ojdbc11")
+    testImplementation("org.springframework.restdocs:spring-restdocs-webtestclient")
     runtimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
+tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
 
