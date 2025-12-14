@@ -1,10 +1,16 @@
 package tk.jaooo.osmanager.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 @Data
 @Builder
@@ -12,7 +18,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "TECNICOS")
-public class Tecnico {
+public class Tecnico implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,6 +26,21 @@ public class Tecnico {
 
     @Column(nullable = false, length = 150)
     private String nome;
+
+    @Column(unique = true, nullable = false, length = 50)
+    private String username;
+
+    @Column(nullable = false)
+    @JsonIgnore
+    private String password;
+
+    @Column(name = "credential_key", length = 50)
+    private String credentialKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsavel_id")
+    @JsonIgnore
+    private Tecnico responsavel;
 
     @Column(name = "is_estagiario", nullable = false)
     private boolean isEstagiario;
@@ -30,4 +51,21 @@ public class Tecnico {
     @CreationTimestamp
     @Column(name = "data_criacao", nullable = false, updatable = false)
     private LocalDateTime dataCriacao;
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (credentialKey != null && !credentialKey.isBlank()) {
+            return List.of(new SimpleGrantedAuthority("ROLE_ADMIN"), new SimpleGrantedAuthority("ROLE_USER"));
+        }
+        return List.of(new SimpleGrantedAuthority("ROLE_USER"));
+    }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+    @Override
+    public boolean isAccountNonLocked() { return !isRemovido; }
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+    @Override
+    public boolean isEnabled() { return !isRemovido; }
 }

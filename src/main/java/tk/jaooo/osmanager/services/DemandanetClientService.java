@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -19,9 +18,6 @@ public class DemandanetClientService {
 
     private WebClient webClient;
 
-    public DemandanetClientService() {
-    }
-
     @PostConstruct
     private void initialize() {
         this.webClient = WebClient.builder()
@@ -31,7 +27,6 @@ public class DemandanetClientService {
     }
 
     public Mono<String> loginAndGetSessionCookie(String username, String password) {
-
         MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
         formData.add("loginType", "admin");
         formData.add("user", username);
@@ -45,21 +40,17 @@ public class DemandanetClientService {
                     if (loginResponse.statusCode().is2xxSuccessful()) {
                         return loginResponse.bodyToMono(String.class)
                                 .flatMap(htmlBody -> {
+                                    // Valida sucesso real do login
                                     if (htmlBody != null && htmlBody.contains("id=iduser")) {
-                                        ResponseCookie sessionCookie = loginResponse.cookies().getFirst("PHPSESSID");
+                                        var sessionCookie = loginResponse.cookies().getFirst("PHPSESSID");
                                         if (sessionCookie != null) {
-                                            String cookieHeaderValue = sessionCookie.getName() + "=" + sessionCookie.getValue();
-                                            return Mono.just(cookieHeaderValue);
-                                        } else {
-                                            return Mono.error(new RuntimeException("Login parece bem-sucedido, mas o cookie de sessão não foi retornado."));
+                                            return Mono.just(sessionCookie.getName() + "=" + sessionCookie.getValue());
                                         }
-                                    } else {
-                                        return Mono.error(new RuntimeException("Falha no login com o Demandanet: credenciais inválidas."));
                                     }
+                                    return Mono.error(new RuntimeException("Credenciais rejeitadas ou cookie não gerado."));
                                 });
-                    } else {
-                        return Mono.error(new RuntimeException("O servidor do Demandanet respondeu com um erro inesperado: " + loginResponse.statusCode()));
                     }
+                    return Mono.error(new RuntimeException("Erro HTTP ao contatar Demandanet: " + loginResponse.statusCode()));
                 });
     }
 }

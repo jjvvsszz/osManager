@@ -11,17 +11,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
-import tk.jaooo.osmanager.model.DemandanetSessionDetails;
+import tk.jaooo.osmanager.model.Tecnico;
+import tk.jaooo.osmanager.services.DemandanetSessionManager;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/demandanet")
@@ -30,60 +28,49 @@ public class DemandanetRelayController {
     private static final Logger logger = LoggerFactory.getLogger(DemandanetRelayController.class);
 
     private final HttpClient httpClient;
-
-    private static final String API_PREFIX = "/api/demandanet";
+    private final DemandanetSessionManager sessionManager;
 
     @Value("${demandanet.base-url}")
     private String demandanetBaseUrl;
 
-    public DemandanetRelayController() {
+    @Value("${demandanet.idescola}")
+    private String idEscolaConfig;
+
+    public DemandanetRelayController(DemandanetSessionManager sessionManager) {
+        this.sessionManager = sessionManager;
         this.httpClient = HttpClient.newBuilder().build();
     }
 
     @RequestMapping("/**")
-    public ResponseEntity<byte[]> relayRequestToDemandanet(
+    public ResponseEntity<byte[]> relayRequest(
             @RequestBody(required = false) byte[] body,
             HttpServletRequest request,
-            @AuthenticationPrincipal DemandanetSessionDetails sessionDetails) {
+            @AuthenticationPrincipal Tecnico solicitante) { // Injetado pelo Spring Security Local
 
-        final URI targetUri = buildTargetUri(request, sessionDetails.getIdEscola());
-        logger.info("Relay {} request to: {}", request.getMethod(), targetUri);
+        // 1. Resolve quem paga a conta (Credencial)
+        Tecnico credentialOwner = sessionManager.resolveCredentialOwner(solicitante);
+
+        logger.info("Relay iniciado. Solicitante: {} (ID {}). Credencial usada: {} (ID {})",
+                solicitante.getUsername(), solicitante.getId(),
+                credentialOwner.getUsername(), credentialOwner.getId());
+
+        String cookie = sessionManager.getSessionForOwner(credentialOwner);
 
         try {
-            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(targetUri);
+            // TENTATIVA 1
+            HttpResponse<byte[]> response = executeInternal(request, body, cookie);
 
-            copyHeadersFromRequest(request, requestBuilder, sessionDetails.getSessionCookie(), sessionDetails.getIdEscola());
+            // Verificação de Erro Silencioso (Fake 200)
+            if (isTextResponse(response) && sessionManager.isSessionExpiredResponse(new String(response.body(), StandardCharsets.UTF_8))) {
 
-            HttpRequest.BodyPublisher bodyPublisher;
+                logger.warn("Sessão Demandanet expirada (SQL Error). Renovando credencial de {}", credentialOwner.getUsername());
 
-            if (request.getContentType() != null && request.getContentType().contains("multipart/form-data")) {
-                String boundary = "----WebKitFormBoundary" + UUID.randomUUID();
-                requestBuilder.header("Content-Type", "multipart/form-data; boundary=" + boundary);
+                // RENOVAÇÃO
+                cookie = sessionManager.refreshSessionForOwner(credentialOwner);
 
-                List<byte[]> byteArrays = new ArrayList<>();
-                request.getParameterMap().forEach((key, values) -> {
-                    for (String value : values) {
-                        byteArrays.add(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-                        byteArrays.add(("Content-Disposition: form-data; name=\"" + key + "\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                        byteArrays.add((value + "\r\n").getBytes(StandardCharsets.UTF_8));
-                    }
-                });
-                if (!request.getParameterMap().containsKey("imagens[]")) {
-                    byteArrays.add(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
-                    byteArrays.add(("Content-Disposition: form-data; name=\"imagens[]\"\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    byteArrays.add(("\r\n").getBytes(StandardCharsets.UTF_8));
-                }
-
-                byteArrays.add(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-
-                bodyPublisher = HttpRequest.BodyPublishers.ofByteArrays(byteArrays);
-            } else {
-                bodyPublisher = (body != null && body.length > 0) ? HttpRequest.BodyPublishers.ofByteArray(body) : HttpRequest.BodyPublishers.noBody();
+                // TENTATIVA 2
+                response = executeInternal(request, body, cookie);
             }
-
-            requestBuilder.method(request.getMethod(), bodyPublisher);
-
-            HttpResponse<byte[]> response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofByteArray());
 
             HttpHeaders responseHeaders = new HttpHeaders();
             response.headers().map().forEach(responseHeaders::addAll);
@@ -91,41 +78,50 @@ public class DemandanetRelayController {
             return new ResponseEntity<>(response.body(), responseHeaders, response.statusCode());
 
         } catch (Exception e) {
-            logger.error("Falha ao fazer relay da requisição: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(e.getMessage().getBytes());
+            logger.error("Falha crítica no Relay Demandanet", e);
+            return ResponseEntity.internalServerError().body(("Erro interno: " + e.getMessage()).getBytes());
         }
     }
 
-    private URI buildTargetUri(HttpServletRequest request, String idEscola) {
-        String originalPath = request.getRequestURI().substring(API_PREFIX.length());
-        String queryString = request.getQueryString() == null ? "" : "?" + request.getQueryString();
+    private HttpResponse<byte[]> executeInternal(HttpServletRequest request, byte[] body, String cookie) throws Exception {
+        URI targetUri = buildTargetUri(request);
 
-        if (request.getMethod().equalsIgnoreCase("POST") && originalPath.endsWith("update.php")) {
-            return URI.create(demandanetBaseUrl + originalPath + queryString);
-        }
+        HttpRequest.Builder builder = HttpRequest.newBuilder().uri(targetUri);
 
+        // Copia headers (exceto sensíveis)
+        Collections.list(request.getHeaderNames()).forEach(headerName -> {
+            String lower = headerName.toLowerCase();
+            if (!lower.equals("cookie") && !lower.equals("host") && !lower.equals("content-length")) {
+                builder.header(headerName, request.getHeader(headerName));
+            }
+        });
+
+        // Injeta sessão gerenciada
+        builder.header("Cookie", cookie);
+        // O Referer é vital para o Demandanet aceitar requisições
+        builder.header("Referer", demandanetBaseUrl + "/ordem_servico_gerencia/?idescola=" + idEscolaConfig);
+
+        HttpRequest.BodyPublisher bodyPublisher = (body != null && body.length > 0)
+                ? HttpRequest.BodyPublishers.ofByteArray(body)
+                : HttpRequest.BodyPublishers.noBody();
+
+        builder.method(request.getMethod(), bodyPublisher);
+
+        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray());
+    }
+
+    private URI buildTargetUri(HttpServletRequest request) {
+        String originalPath = request.getRequestURI().substring("/api/demandanet".length());
         return UriComponentsBuilder.fromUriString(demandanetBaseUrl)
                 .path(originalPath)
-                .queryParam("idEscola", idEscola)
                 .query(request.getQueryString())
                 .build(true)
                 .toUri();
     }
 
-    private void copyHeadersFromRequest(HttpServletRequest request, HttpRequest.Builder builder, String sessionCookie, String idEscola) {
-        Collections.list(request.getHeaderNames()).forEach(headerName -> {
-            String lowerCaseHeader = headerName.toLowerCase();
-            if (!lowerCaseHeader.equals("host") &&
-                    !lowerCaseHeader.equals("authorization") &&
-                    !lowerCaseHeader.equals("cookie") &&
-                    !lowerCaseHeader.equals("content-length") &&
-                    !lowerCaseHeader.equals("content-type") &&
-                    !lowerCaseHeader.equals("connection")) {
-                builder.header(headerName, request.getHeader(headerName));
-            }
-        });
-
-        builder.header("Cookie", sessionCookie);
-        builder.header("Referer", demandanetBaseUrl + "/ordem_servico_gerencia/?idescola=" + idEscola);
+    private boolean isTextResponse(HttpResponse<?> response) {
+        return response.headers().firstValue("Content-Type")
+                .map(ct -> ct.contains("text") || ct.contains("json") || ct.contains("xml"))
+                .orElse(false);
     }
 }
