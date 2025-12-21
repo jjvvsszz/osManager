@@ -43,10 +43,10 @@ public class Tecnico implements UserDetails {
     private Tecnico responsavel;
 
     @Column(name = "is_estagiario", nullable = false)
-    private boolean isEstagiario;
+    private boolean estagiario;
 
     @Column(name = "is_removido", nullable = false)
-    private boolean isRemovido = false;
+    private boolean removido = false;
 
     @CreationTimestamp
     @Column(name = "data_criacao", nullable = false, updatable = false)
@@ -63,9 +63,9 @@ public class Tecnico implements UserDetails {
     @Override
     public boolean isAccountNonExpired() { return true; }
     @Override
-    public boolean isAccountNonLocked() { return !isRemovido; }
+    public boolean isAccountNonLocked() { return !removido; }
     @Override
     public boolean isCredentialsNonExpired() { return true; }
     @Override
-    public boolean isEnabled() { return !isRemovido; }
+    public boolean isEnabled() { return !removido; }
 }
