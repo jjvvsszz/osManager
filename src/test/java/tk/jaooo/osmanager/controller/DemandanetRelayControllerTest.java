@@ -107,11 +107,6 @@ class DemandanetRelayControllerTest {
         tecnicoMock.setId(1L);
         tecnicoMock.setUsername("teste");
 
-        when(sessionManager.resolveCredentialOwner(any())).thenReturn(tecnicoMock);
-        when(sessionManager.getSessionForOwner(any())).thenReturn("PHPSESSID=abc");
-        when(clientService.concludeOrder(any(), any(), any())).thenReturn(Mono.just("Sucesso"));
-        when(sessionManager.isSessionExpiredResponse(any())).thenReturn(false);
-
         mockMvc.perform(post("/api/demandanet/concluir")
                         .with(user(tecnicoMock))
                         .with(csrf())
@@ -127,11 +122,6 @@ class DemandanetRelayControllerTest {
         Tecnico tecnicoMock = new Tecnico();
         tecnicoMock.setId(1L);
         tecnicoMock.setUsername("teste");
-
-        when(sessionManager.resolveCredentialOwner(any())).thenReturn(tecnicoMock);
-        when(sessionManager.getSessionForOwner(any())).thenReturn("PHPSESSID=abc");
-        when(clientService.concludeOrder(any(), any(), any())).thenReturn(Mono.just("Sucesso"));
-        when(sessionManager.isSessionExpiredResponse(any())).thenReturn(false);
 
         mockMvc.perform(post("/api/demandanet/concluir")
                         .with(user(tecnicoMock))
