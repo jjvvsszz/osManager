@@ -1,100 +1,112 @@
 package tk.jaooo.osmanager.services;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oracle.bmc.auth.ConfigFileAuthenticationDetailsProvider;
 import com.oracle.bmc.secrets.SecretsClient;
 import com.oracle.bmc.secrets.model.Base64SecretBundleContentDetails;
 import com.oracle.bmc.secrets.requests.GetSecretBundleRequest;
-import com.oracle.bmc.secrets.responses.GetSecretBundleResponse;
+import com.oracle.bmc.vault.VaultsClient; // NOVO CLIENTE
+import com.oracle.bmc.vault.model.Base64SecretContentDetails;
+import com.oracle.bmc.vault.model.CreateSecretDetails;
+import com.oracle.bmc.vault.requests.CreateSecretRequest;
 import org.apache.commons.codec.binary.Base64;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class OciSecretsService {
 
-    private static final Logger logger = LoggerFactory.getLogger(OciSecretsService.class);
-
     private final SecretsClient secretsClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String masterSecretOcid;
+    private final VaultsClient vaultsClient;
+    private final ObjectMapper objectMapper;
 
-    // Cache simples: JSON Mestre Map<Key, Credentials>
-    private Map<String, DemandanetCredentials> cachedCredentials;
-    private Instant lastCacheUpdate = Instant.MIN;
+    @Value("${oci.vault.compartment-id}")
+    private String compartmentId;
 
-    // Tempo de cache (ex: 10 minutos) para evitar chamadas excessivas ao Vault
-    private static final int CACHE_MINUTES = 10;
+    @Value("${oci.vault.vault-id}")
+    private String vaultId;
+
+    @Value("${oci.vault.encryption-key-id}")
+    private String encryptionKeyId;
 
     public OciSecretsService(
             @Value("${oci.config.path:~/.oci/config}") String configPath,
             @Value("${oci.config.profile:DEFAULT}") String profile,
-            @Value("${oci.vault.master-secret-id}") String masterSecretOcid) throws IOException { // Novo ID global
+            ObjectMapper objectMapper) throws IOException {
 
-        this.masterSecretOcid = masterSecretOcid;
+        this.objectMapper = objectMapper;
 
-        String resolvedPath = configPath;
-        if (configPath.startsWith("~")) {
-            resolvedPath = System.getProperty("user.home") + configPath.substring(1);
-        }
-
+        String resolvedPath = configPath.replace("~", System.getProperty("user.home"));
         var provider = new ConfigFileAuthenticationDetailsProvider(resolvedPath, profile);
+
         this.secretsClient = SecretsClient.builder().build(provider);
+        this.vaultsClient = VaultsClient.builder().build(provider);
     }
 
-    // Busca uma credencial específica dentro do JSON Mestre.
-    public synchronized DemandanetCredentials getCredentialByKey(String key) {
-        if (shouldRefreshCache()) {
-            refreshCache();
-        }
+    /**
+     * Cria um novo segredo no Vault e retorna o OCID.
+     */
+    public String createSecretForUser(String username, String demUser, String demPass) {
+        try {
+            // 1. Prepara o conteúdo JSON
+            Map<String, String> contentMap = Map.of(
+                    "username", demUser,
+                    "password", demPass
+            );
+            String jsonContent = objectMapper.writeValueAsString(contentMap);
 
-        DemandanetCredentials creds = cachedCredentials.get(key);
-        if (creds == null) {
-            // Se não achou, pode ser que o cache esteja velho e adicionaram agora. Força refresh 1 vez.
-            logger.warn("Chave '{}' não encontrada no cache. Forçando atualização do Vault...", key);
-            refreshCache();
-            creds = cachedCredentials.get(key);
-        }
+            // 2. Codifica em Base64 (Exigência do OCI)
+            String base64Content = Base64.encodeBase64String(jsonContent.getBytes());
 
-        if (creds == null) {
-            throw new IllegalArgumentException("Credencial não encontrada no Vault para a chave: " + key);
-        }
+            // 3. Monta a requisição
+            CreateSecretDetails details = CreateSecretDetails.builder()
+                    .compartmentId(compartmentId)
+                    .vaultId(vaultId)
+                    .keyId(encryptionKeyId)
+                    .secretName("osmanager-cred-" + username + "-" + System.currentTimeMillis()) // Nome único
+                    .description("Credenciais Demandanet para " + username)
+                    .secretContent(Base64SecretContentDetails.builder()
+                            .content(base64Content)
+                            .stage(Base64SecretContentDetails.Stage.Current)
+                            .build())
+                    .build();
 
-        return creds;
+            CreateSecretRequest request = CreateSecretRequest.builder()
+                    .createSecretDetails(details)
+                    .build();
+
+            // 4. Envia e retorna o ID
+            var response = vaultsClient.createSecret(request);
+            return response.getSecret().getId();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao criar segredo no OCI Vault: " + e.getMessage(), e);
+        }
     }
 
-    private boolean shouldRefreshCache() {
-        return cachedCredentials == null || Instant.now().isAfter(lastCacheUpdate.plus(CACHE_MINUTES, ChronoUnit.MINUTES));
-    }
-
-    private void refreshCache() {
-        logger.info("Atualizando cache de credenciais do Vault (Secret Mestre)...");
+    /**
+     * Busca credencial usando o OCID (que estará salvo no banco no campo credentialKey)
+     */
+    public DemandanetCredentials getCredentialByOcid(String secretOcid) {
         try {
             GetSecretBundleRequest request = GetSecretBundleRequest.builder()
-                    .secretId(masterSecretOcid)
+                    .secretId(secretOcid)
                     .stage(GetSecretBundleRequest.Stage.Current)
                     .build();
 
-            GetSecretBundleResponse response = secretsClient.getSecretBundle(request);
+            var response = secretsClient.getSecretBundle(request);
             var contentDetails = (Base64SecretBundleContentDetails) response.getSecretBundle().getSecretBundleContent();
-            byte[] decoded = Base64.decodeBase64(contentDetails.getContent());
-            String jsonString = new String(decoded);
 
-            // Parseia o JSON grandão: { "adm1": {"username": "...", "password": "..."}, "adm2": ... }
-            this.cachedCredentials = objectMapper.readValue(jsonString, new TypeReference<ConcurrentHashMap<String, DemandanetCredentials>>() {});
-            this.lastCacheUpdate = Instant.now();
+            byte[] decoded = Base64.decodeBase64(contentDetails.getContent());
+
+            // Lê o JSON individual: {"username": "...", "password": "..."}
+            return objectMapper.readValue(decoded, DemandanetCredentials.class);
 
         } catch (Exception e) {
-            throw new RuntimeException("Falha ao atualizar credenciais do OCI Vault.", e);
+            throw new RuntimeException("Falha ao ler segredo (" + secretOcid + ") do OCI Vault.", e);
         }
     }
 

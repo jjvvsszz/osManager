@@ -45,6 +45,7 @@ public class Tecnico implements UserDetails {
     @Column(name = "is_estagiario", nullable = false)
     private boolean estagiario;
 
+    @Builder.Default
     @Column(name = "is_removido", nullable = false)
     private boolean removido = false;
 

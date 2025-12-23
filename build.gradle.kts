@@ -32,6 +32,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.jsoup:jsoup:1.21.2")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // --- UTILITÁRIOS ---
@@ -40,11 +41,12 @@ dependencies {
     implementation("org.springframework:spring-aspects")
 
     // --- ORACLE CLOUD (OCI SDK) ---
+    implementation(platform("com.oracle.oci.sdk:oci-java-sdk-bom:3.77.2"))
     implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey3")
-    implementation(platform("com.oracle.oci.sdk:oci-java-sdk-bom:3.77.1"))
     implementation("com.oracle.oci.sdk:oci-java-sdk-secrets")
     implementation("com.oracle.oci.sdk:oci-java-sdk-common")
     implementation("com.oracle.oci.sdk:oci-java-sdk-identity")
+    implementation("com.oracle.oci.sdk:oci-java-sdk-vault")
 
     // --- SEGURANÇA JWT ---
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")

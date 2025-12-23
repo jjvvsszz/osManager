@@ -56,7 +56,7 @@ public class DemandanetSessionManager {
 
     private String performLogin(Tecnico owner) {
         // Agora busca pela chave string (ex: "adm_ti")
-        var credentials = ociSecretsService.getCredentialByKey(owner.getCredentialKey());
+        var credentials = ociSecretsService.getCredentialByOcid(owner.getCredentialKey());
 
         String cookie = clientService.loginAndGetSessionCookie(credentials.username(), credentials.password())
                 .block();

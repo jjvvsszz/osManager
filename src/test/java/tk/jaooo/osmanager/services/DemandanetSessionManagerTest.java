@@ -53,7 +53,7 @@ class DemandanetSessionManagerTest {
                 new OciSecretsService.DemandanetCredentials("user", "pass");
 
         // Mocks
-        when(ociSecretsService.getCredentialByKey("adm_master")).thenReturn(creds);
+        when(ociSecretsService.getCredentialByOcid("adm_master")).thenReturn(creds);
         when(clientService.loginAndGetSessionCookie("user", "pass"))
                 .thenReturn(Mono.just("PHPSESSID=novo_cookie_123"));
 
