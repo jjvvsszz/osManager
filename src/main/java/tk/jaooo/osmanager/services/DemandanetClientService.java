@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -15,6 +16,9 @@ public class DemandanetClientService {
 
     @Value("${demandanet.base-url}")
     private String demandanetBaseUrl;
+
+    @Value("${demandanet.idescola}")
+    private String idEscolaConfig;
 
     private WebClient webClient;
 
@@ -40,7 +44,6 @@ public class DemandanetClientService {
                     if (loginResponse.statusCode().is2xxSuccessful()) {
                         return loginResponse.bodyToMono(String.class)
                                 .flatMap(htmlBody -> {
-                                    // Valida sucesso real do login
                                     if (htmlBody != null && htmlBody.contains("id=iduser")) {
                                         var sessionCookie = loginResponse.cookies().getFirst("PHPSESSID");
                                         if (sessionCookie != null) {
@@ -52,5 +55,25 @@ public class DemandanetClientService {
                     }
                     return Mono.error(new RuntimeException("Erro HTTP ao contatar Demandanet: " + loginResponse.statusCode()));
                 });
+    }
+
+    public Mono<String> concludeOrder(String sessionCookie, String osId, String observacao) {
+        MultiValueMap<String, String> multipartData = new LinkedMultiValueMap<>();
+        multipartData.add("idOrdem", osId);
+        multipartData.add("observacao", observacao);
+        multipartData.add("imagens[]", "");
+        multipartData.add("funcao", "concluirOrdem");
+
+        return this.webClient.post()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/ordem_servico_gerencia/src/php/update.php")
+                        .queryParam("idEscola", idEscolaConfig)
+                        .build())
+                .header("Cookie", sessionCookie)
+                .header("Referer", demandanetBaseUrl + "/")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(multipartData))
+                .retrieve()
+                .bodyToMono(String.class);
     }
 }

@@ -63,10 +63,6 @@ public class DemandanetParserService {
         );
     }
 
-    /**
-     * CORREÇÃO 2: Lógica unificada para extrair valor.
-     * Emula o comportamento do JavaScript: .value para inputs/textareas, .textContent para o resto.
-     */
     private String getValueOrText(Document doc, String selector) {
         Element el = doc.selectFirst(selector);
         if (el == null) return "";

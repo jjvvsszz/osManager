@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tk.jaooo.osmanager.model.AuthenticationResponse;
+import tk.jaooo.osmanager.model.dto.AuthenticationResponseDTO;
 import tk.jaooo.osmanager.model.Tecnico;
 import tk.jaooo.osmanager.model.dto.DemandanetAuthRequestDTO;
 import tk.jaooo.osmanager.repository.TecnicoRepository;
@@ -72,7 +72,7 @@ public class AuthController {
 
             logger.info("Login realizado com sucesso para: {}", tecnico.getNome());
 
-            return ResponseEntity.ok(new AuthenticationResponse(jwt));
+            return ResponseEntity.ok(new AuthenticationResponseDTO(jwt));
 
         } catch (Exception e) {
             logger.error("Erro ao obter sessão do sistema legado", e);

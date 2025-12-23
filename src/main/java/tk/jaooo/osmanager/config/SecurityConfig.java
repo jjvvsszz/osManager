@@ -31,7 +31,7 @@ public class SecurityConfig {
                         // Endpoints públicos da API
                         .requestMatchers("/api/authenticate", "/api/tecnicos/register").permitAll()
 
-                        // Libera arquivos estáticos da documentação (Asciidoc - se houver)
+                        // Libera arquivos estáticos da documentação
                         .requestMatchers("/docs/**").permitAll()
 
                         // --- LIBERA O SWAGGER UI ---

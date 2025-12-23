@@ -58,7 +58,6 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 String username = jwtUtil.extractUsername(jwt);
 
                 if (username != null) {
-                    // CORREÇÃO: Carrega o Técnico do banco
                     Optional<Tecnico> tecnicoOpt = tecnicoRepository.findByUsernameAndRemovidoIsFalse(username);
 
                     if (tecnicoOpt.isPresent()) {
@@ -66,9 +65,9 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
                         // Cria a autenticação usando o objeto TECNICO como Principal
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                                tecnico, // Principal agora é o objeto Tecnico
+                                tecnico,
                                 null,
-                                tecnico.getAuthorities() // Usa as roles corretas do técnico
+                                tecnico.getAuthorities()
                         );
 
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

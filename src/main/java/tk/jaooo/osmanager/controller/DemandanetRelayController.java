@@ -1,16 +1,20 @@
 package tk.jaooo.osmanager.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 import tk.jaooo.osmanager.model.Tecnico;
+import tk.jaooo.osmanager.model.dto.ConcludeOrderRequestDTO;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDetailsDTO;
+import tk.jaooo.osmanager.services.DemandanetClientService;
 import tk.jaooo.osmanager.services.DemandanetParserService;
 import tk.jaooo.osmanager.services.DemandanetSessionManager;
 
@@ -31,6 +35,7 @@ public class DemandanetRelayController {
     private final HttpClient httpClient;
     private final DemandanetSessionManager sessionManager;
     private final DemandanetParserService parserService;
+    private final DemandanetClientService clientService; // Adicionado
 
     @Value("${demandanet.base-url}")
     private String demandanetBaseUrl;
@@ -40,9 +45,12 @@ public class DemandanetRelayController {
 
     private static final String LEGACY_PHP_PATH = "/ordem_servico_gerencia/src/php/read.php";
 
-    public DemandanetRelayController(DemandanetSessionManager sessionManager, DemandanetParserService parserService) {
+    public DemandanetRelayController(DemandanetSessionManager sessionManager,
+                                     DemandanetParserService parserService,
+                                     DemandanetClientService clientService) {
         this.sessionManager = sessionManager;
         this.parserService = parserService;
+        this.clientService = clientService;
         this.httpClient = HttpClient.newBuilder().build();
     }
 
@@ -79,6 +87,41 @@ public class DemandanetRelayController {
         }
 
         return ResponseEntity.ok(parserService.parseOrderDetails(html));
+    }
+
+    @PostMapping("/concluir")
+    public ResponseEntity<?> concluirOrdem(
+            @RequestBody @Valid ConcludeOrderRequestDTO dto,
+            @AuthenticationPrincipal Tecnico solicitante) {
+
+        try {
+            Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
+            String cookie = sessionManager.getSessionForOwner(owner);
+
+            // 1. Tenta executar a ação
+            String responseBody = clientService.concludeOrder(cookie, dto.osNumber(), dto.observacao()).block();
+
+            // 2. Verifica se a sessão expirou
+            if (sessionManager.isSessionExpiredResponse(responseBody)) {
+                logger.info("Sessão expirada ao concluir OS {}. Renovando e tentando novamente...", dto.osNumber());
+
+                // 3. Renova e Tenta novamente
+                cookie = sessionManager.refreshSessionForOwner(owner);
+                responseBody = clientService.concludeOrder(cookie, dto.osNumber(), dto.observacao()).block();
+
+                // Se falhar novamente, retorna erro
+                if (sessionManager.isSessionExpiredResponse(responseBody)) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                            .body("Falha ao renovar sessão com o sistema legado.");
+                }
+            }
+
+            return ResponseEntity.ok("Ordem concluída com sucesso.");
+
+        } catch (Exception e) {
+            logger.error("Erro ao concluir OS {}", dto.osNumber(), e);
+            return ResponseEntity.internalServerError().body("Erro ao processar solicitação: " + e.getMessage());
+        }
     }
 
     @RequestMapping("/proxy/**")
