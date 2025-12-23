@@ -1,5 +1,6 @@
 package tk.jaooo.osmanager.controller;
 
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +43,7 @@ public class AuthController {
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody DemandanetAuthRequestDTO authRequest) {
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody @Valid DemandanetAuthRequestDTO authRequest) {
         logger.info("Tentativa de autenticação local para: {}", authRequest.username());
 
         // 1. Busca o usuário no banco local
