@@ -38,54 +38,55 @@ public class DemandanetRelayController {
     @Value("${demandanet.idescola}")
     private String idEscolaConfig;
 
+    private static final String LEGACY_PHP_PATH = "/ordem_servico_gerencia/src/php/read.php";
+
     public DemandanetRelayController(DemandanetSessionManager sessionManager, DemandanetParserService parserService) {
         this.sessionManager = sessionManager;
         this.parserService = parserService;
         this.httpClient = HttpClient.newBuilder().build();
     }
 
-    /**
-     * Endpoint NOVO: Retorna JSON com a lista de ordens (backend faz o parse).
-     */
     @GetMapping("/listar-ordens")
     public ResponseEntity<List<ConsultedOrderDTO>> listarOrdens(
             @RequestParam(defaultValue = "5") int situacao,
             @AuthenticationPrincipal Tecnico solicitante) {
 
-        String path = "/read.php?situacao=" + situacao + "&funcao=listar";
+        String path = LEGACY_PHP_PATH + "?situacao=" + situacao + "&funcao=listar";
         String html = executeGetRequest(path, solicitante);
 
-        return ResponseEntity.ok(parserService.parseOrderList(html));
+        List<ConsultedOrderDTO> ordens = parserService.parseOrderList(html);
+
+        if (ordens.isEmpty()) {
+            logger.debug("Lista vazia ou HTML inesperado. Tamanho: {}", html.length());
+            if (html.contains("Not Found")) {
+                logger.error("Erro 404 no legado. URL gerada provavelmente incorreta.");
+            }
+        }
+
+        return ResponseEntity.ok(ordens);
     }
 
-    /**
-     * Endpoint NOVO: Retorna JSON com detalhes da ordem (backend faz o parse).
-     */
     @GetMapping("/detalhes-ordem/{idOrdem}")
     public ResponseEntity<ConsultedOrderDetailsDTO> detalhesOrdem(
             @PathVariable String idOrdem,
             @AuthenticationPrincipal Tecnico solicitante) {
 
-        String path = "/read.php?funcao=detalheOrdem&idOrdem=" + idOrdem;
+        String path = LEGACY_PHP_PATH + "?funcao=detalheOrdem&idOrdem=" + idOrdem;
         String html = executeGetRequest(path, solicitante);
 
-        if (html.contains("Nenhuma ordem de serviço encontrada")) {
+        if (html.contains("Nenhuma ordem de serviço encontrada") || html.contains("Not Found")) {
             return ResponseEntity.notFound().build();
         }
 
         return ResponseEntity.ok(parserService.parseOrderDetails(html));
     }
 
-    /**
-     * Mantém o endpoint genérico para updates/posts ou recursos não mapeados ainda.
-     */
     @RequestMapping("/proxy/**")
     public ResponseEntity<byte[]> relayRequest(
             @RequestBody(required = false) byte[] body,
             HttpServletRequest request,
             @AuthenticationPrincipal Tecnico solicitante) {
 
-        // Remove o prefixo /api/demandanet/proxy para pegar o path real do legado
         String prefix = "/api/demandanet/proxy";
         String uri = request.getRequestURI();
         String legacyPath = uri.substring(prefix.length());
@@ -100,13 +101,10 @@ public class DemandanetRelayController {
 
     private String executeGetRequest(String path, Tecnico solicitante) {
         try {
-            // Cria um request dummy apenas para aproveitar a lógica do executeRawRequest
-            // Em uma refatoração maior, extrairíamos a lógica de sessão para um método comum
             Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
             String cookie = sessionManager.getSessionForOwner(owner);
 
-            URI targetUri = UriComponentsBuilder.fromUriString(demandanetBaseUrl)
-                    .path(path)
+            URI targetUri = UriComponentsBuilder.fromUriString(demandanetBaseUrl + path)
                     .queryParam("idEscola", idEscolaConfig)
                     .build().toUri();
 
@@ -114,15 +112,21 @@ public class DemandanetRelayController {
                     .uri(targetUri)
                     .header("Cookie", cookie)
                     .header("Referer", demandanetBaseUrl + "/")
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .GET()
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.ISO_8859_1)); // Demandanet é legado, provável ISO-8859-1
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.ISO_8859_1));
 
             if (sessionManager.isSessionExpiredResponse(response.body())) {
-                logger.warn("Sessão expirada. Renovando...");
+                logger.warn("Sessão expirada detectada no HTML. Renovando...");
                 cookie = sessionManager.refreshSessionForOwner(owner);
-                request = HttpRequest.newBuilder(targetUri).header("Cookie", cookie).GET().build();
+                request = HttpRequest.newBuilder(targetUri)
+                        .header("Cookie", cookie)
+                        .header("Referer", demandanetBaseUrl + "/")
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .GET()
+                        .build();
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.ISO_8859_1));
             }
 
@@ -140,10 +144,13 @@ public class DemandanetRelayController {
         try {
             HttpResponse<byte[]> response = executeInternal(method, path, body, cookie, originalRequest);
 
-            if (isTextResponse(response) && sessionManager.isSessionExpiredResponse(new String(response.body(), StandardCharsets.ISO_8859_1))) {
-                logger.warn("Sessão Demandanet expirada (SQL Error). Renovando...");
-                cookie = sessionManager.refreshSessionForOwner(owner);
-                response = executeInternal(method, path, body, cookie, originalRequest);
+            if (isTextResponse(response)) {
+                String responseBodyStr = new String(response.body(), StandardCharsets.ISO_8859_1);
+                if (sessionManager.isSessionExpiredResponse(responseBodyStr)) {
+                    logger.warn("Sessão Demandanet expirada (SQL Error). Renovando...");
+                    cookie = sessionManager.refreshSessionForOwner(owner);
+                    response = executeInternal(method, path, body, cookie, originalRequest);
+                }
             }
 
             org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
@@ -158,15 +165,13 @@ public class DemandanetRelayController {
     }
 
     private HttpResponse<byte[]> executeInternal(String method, String path, byte[] body, String cookie, HttpServletRequest originalRequest) throws Exception {
-        URI targetUri = UriComponentsBuilder.fromUriString(demandanetBaseUrl)
-                .path(path)
+        URI targetUri = UriComponentsBuilder.fromUriString(demandanetBaseUrl + path)
                 .queryParam("idEscola", idEscolaConfig)
-                .build(true) // Encoding automático
+                .build()
                 .toUri();
 
         HttpRequest.Builder builder = HttpRequest.newBuilder().uri(targetUri);
 
-        // Copia headers importantes
         if (originalRequest != null) {
             Collections.list(originalRequest.getHeaderNames()).forEach(headerName -> {
                 String lower = headerName.toLowerCase();

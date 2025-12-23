@@ -18,11 +18,13 @@ public class DemandanetParserService {
         Document doc = Jsoup.parse(html);
         List<ConsultedOrderDTO> orders = new ArrayList<>();
 
-        // Seletor baseado no seu frontend: #tabelaOrdem tbody tr
-        Elements rows = doc.select("#tabelaOrdem tbody tr");
+        // O Jsoup pode não criar o tbody se o HTML original não tiver, ao contrário do navegador.
+        // Selecionamos todas as linhas da tabela direta ou indiretamente.
+        Elements rows = doc.select("#tabelaOrdem tr");
 
         for (Element row : rows) {
             Elements cells = row.select("td");
+            // Ignora cabeçalhos (que usam <th> ou não tem 6 <td>)
             if (cells.size() >= 6) {
                 orders.add(new ConsultedOrderDTO(
                         cells.get(0).text().trim(), // ID
@@ -40,7 +42,7 @@ public class DemandanetParserService {
     public ConsultedOrderDetailsDTO parseOrderDetails(String html) {
         Document doc = Jsoup.parse(html);
 
-        // Lógica de extração baseada no App.tsx
+        // Lógica de extração robusta (Input vs Textarea vs Span)
         String osNumber = getValueOrText(doc, "#idOrdem");
         String requisitante = getValueOrText(doc, "#escolaOut");
         String tipoServico = getValueOrText(doc, "#tipo");
@@ -50,6 +52,7 @@ public class DemandanetParserService {
         String situacao = getValueOrText(doc, "#situacaoOut");
         String dataCadastro = getValueOrText(doc, "#dataCadastroOut");
 
+        // Tratamento de valores vazios conforme regra do frontend
         if (defeito.isEmpty()) defeito = "Não encontrado";
         if (descricao.isEmpty()) descricao = "Não encontrado";
         if (patrimonio.isEmpty()) patrimonio = "Não encontrado";
@@ -60,14 +63,23 @@ public class DemandanetParserService {
         );
     }
 
+    /**
+     * CORREÇÃO 2: Lógica unificada para extrair valor.
+     * Emula o comportamento do JavaScript: .value para inputs/textareas, .textContent para o resto.
+     */
     private String getValueOrText(Document doc, String selector) {
         Element el = doc.selectFirst(selector);
         if (el == null) return "";
 
-        // Tenta pegar o atributo value (input/textarea), senão pega o texto (div/span)
-        if (el.hasAttr("value")) {
-            return el.attr("value").trim();
+        // Se for um elemento de formulário, usamos .val() do Jsoup
+        // O .val() do Jsoup lida corretamente com <textarea>texto</textarea> e <input value="texto">
+        if (el.tagName().equalsIgnoreCase("input") ||
+                el.tagName().equalsIgnoreCase("textarea") ||
+                el.tagName().equalsIgnoreCase("select")) {
+            return el.val().trim();
         }
+
+        // Se for span, div, td, etc, pegamos o texto visível
         return el.text().trim();
     }
 }
