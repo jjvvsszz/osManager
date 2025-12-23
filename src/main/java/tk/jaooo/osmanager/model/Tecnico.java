@@ -34,7 +34,7 @@ public class Tecnico implements UserDetails {
     @JsonIgnore
     private String password;
 
-    @Column(name = "credential_key", length = 50)
+    @Column(name = "credential_key")
     private String credentialKey;
 
     @ManyToOne(fetch = FetchType.LAZY)

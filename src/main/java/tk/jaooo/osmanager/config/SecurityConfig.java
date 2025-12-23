@@ -44,7 +44,7 @@ public class SecurityConfig {
                         // Options request (CORS pré-flight)
                         .requestMatchers(HttpMethod.OPTIONS).permitAll()
 
-                        // Todo o resto requer autenticação
+                        // O resto requer autenticação
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

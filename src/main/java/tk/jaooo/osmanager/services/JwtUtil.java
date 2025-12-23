@@ -34,6 +34,10 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
     public String extractSessionCookie(String token) {
         return extractClaim(token, claims -> claims.get(SESSION_COOKIE_CLAIM, String.class));
     }
@@ -59,14 +63,14 @@ public class JwtUtil {
                 .getPayload();
     }
 
-    public String generateTokenForDemandanetSession(String sessionCookie, String idEscola) {
+    public String generateToken(String username, String sessionCookie, String idEscola) {
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
+                .subject(username)
                 .claim(SESSION_COOKIE_CLAIM, sessionCookie)
                 .claim(ID_ESCOLA_CLAIM, idEscola)
-                .subject(idEscola)
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(this.key)

@@ -68,9 +68,9 @@ public class AuthController {
             String sessionCookie = sessionManager.getSessionForOwner(donoCredencial);
 
             // 5. Gera o JWT
-            final String jwt = jwtUtil.generateTokenForDemandanetSession(sessionCookie, this.idEscola);
+            final String jwt = jwtUtil.generateToken(tecnico.getUsername(), sessionCookie, this.idEscola);
 
-            logger.info("Login realizado com sucesso para: {} (Sessão via: {})", tecnico.getNome(), donoCredencial.getNome());
+            logger.info("Login realizado com sucesso para: {}", tecnico.getNome());
 
             return ResponseEntity.ok(new AuthenticationResponse(jwt));
 
