@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface TecnicoRepository extends JpaRepository<Tecnico, Long> {
     Optional<Tecnico> findByNomeAndRemovidoIsFalse(String nome);
+
+    Optional<Tecnico> findByUsernameAndRemovidoIsFalse(String cpf);
 }

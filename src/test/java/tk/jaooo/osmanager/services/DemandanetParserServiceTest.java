@@ -45,7 +45,7 @@ class DemandanetParserServiceTest {
 
         assertEquals(2, ordens.size());
 
-        ConsultedOrderDTO primeira = ordens.get(0);
+        ConsultedOrderDTO primeira = ordens.getFirst();
         assertEquals("12345", primeira.id());
         assertEquals("Escola Estadual A", primeira.escola());
         assertEquals("PAT-001", primeira.patrimonio());

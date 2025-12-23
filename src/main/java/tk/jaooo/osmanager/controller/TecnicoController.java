@@ -1,8 +1,11 @@
 package tk.jaooo.osmanager.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import tk.jaooo.osmanager.model.Tecnico;
+import tk.jaooo.osmanager.model.dto.TecnicoRegisterDTO;
 import tk.jaooo.osmanager.services.TecnicoService;
 
 import java.util.List;
@@ -17,9 +20,24 @@ public class TecnicoController {
         this.tecnicoService = tecnicoService;
     }
 
+    /**
+     * Endpoint PÚBLICO: Qualquer um pode chamar, mas precisa passar credenciais válidas do Demandanet.
+     */
+    @PostMapping("/register")
+    public ResponseEntity<Tecnico> registrarPublico(@RequestBody @Valid TecnicoRegisterDTO dto) {
+        Tecnico novoTecnico = tecnicoService.registrarTecnicoComDemandanet(dto);
+        return ResponseEntity.ok(novoTecnico);
+    }
+
+    /**
+     * Endpoint PROTEGIDO: Criação interna. O "responsável" será o usuário logado.
+     */
     @PostMapping
-    public ResponseEntity<Tecnico> criarTecnico(@RequestBody Tecnico tecnico) {
-        Tecnico novoTecnico = tecnicoService.criarTecnico(tecnico);
+    public ResponseEntity<Tecnico> criarInterno(
+            @RequestBody @Valid TecnicoRegisterDTO dto,
+            @AuthenticationPrincipal Tecnico usuarioLogado) {
+
+        Tecnico novoTecnico = tecnicoService.criarTecnicoInterno(dto, usuarioLogado);
         return ResponseEntity.ok(novoTecnico);
     }
 
