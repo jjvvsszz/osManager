@@ -27,9 +27,23 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos da API
                         .requestMatchers("/api/authenticate", "/api/tecnicos/register").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
+
+                        // Libera arquivos estáticos da documentação (Asciidoc - se houver)
                         .requestMatchers("/docs/**").permitAll()
+
+                        // --- LIBERA O SWAGGER UI ---
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+
+                        // Options request (CORS pré-flight)
+                        .requestMatchers(HttpMethod.OPTIONS).permitAll()
+
+                        // Todo o resto requer autenticação
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

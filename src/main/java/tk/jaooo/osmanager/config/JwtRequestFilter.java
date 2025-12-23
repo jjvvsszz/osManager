@@ -14,7 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import tk.jaooo.osmanager.model.DemandanetSessionDetails;
+import tk.jaooo.osmanager.model.dto.DemandanetSessionDetailsDTO;
 import tk.jaooo.osmanager.services.JwtUtil;
 
 import java.io.IOException;
@@ -57,7 +57,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 String sessionCookie = jwtUtil.extractSessionCookie(jwt);
                 String idEscola = jwtUtil.extractIdEscola(jwt);
 
-                DemandanetSessionDetails sessionDetails = new DemandanetSessionDetails(sessionCookie, idEscola);
+                DemandanetSessionDetailsDTO sessionDetails = new DemandanetSessionDetailsDTO(sessionCookie, idEscola);
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         sessionDetails,

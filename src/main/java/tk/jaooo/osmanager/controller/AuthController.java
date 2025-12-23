@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tk.jaooo.osmanager.model.AuthenticationResponse;
-import tk.jaooo.osmanager.model.DemandanetAuthRequest;
+import tk.jaooo.osmanager.model.dto.DemandanetAuthRequestDTO;
 import tk.jaooo.osmanager.services.DemandanetClientService;
 import tk.jaooo.osmanager.services.JwtUtil;
 
@@ -32,13 +32,13 @@ public class AuthController {
     }
 
     @PostMapping("/authenticate")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody DemandanetAuthRequest authRequest) {
-        logger.info("Tentativa de autenticação para o usuário: {}", authRequest.getUsername());
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody DemandanetAuthRequestDTO authRequest) {
+        logger.info("Tentativa de autenticação para o usuário: {}", authRequest.username());
 
         try {
             String sessionCookie = demandanetClientService.loginAndGetSessionCookie(
-                    authRequest.getUsername(),
-                    authRequest.getPassword()
+                    authRequest.username(),
+                    authRequest.password()
             ).block();
 
             if (sessionCookie == null || sessionCookie.isEmpty()) {
@@ -52,7 +52,7 @@ public class AuthController {
             return ResponseEntity.ok(new AuthenticationResponse(jwt));
 
         } catch (Exception e) {
-            logger.error("Falha na autenticação com o Demandanet para o usuário: {}. Erro: {}", authRequest.getUsername(), e.getMessage());
+            logger.error("Falha na autenticação com o Demandanet para o usuário: {}. Erro: {}", authRequest.username(), e.getMessage());
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body("Falha na autenticação: Verifique as credenciais do Demandanet ou o serviço pode estar indisponível.");

@@ -33,6 +33,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.jsoup:jsoup:1.21.2")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // --- UTILITÁRIOS ---
