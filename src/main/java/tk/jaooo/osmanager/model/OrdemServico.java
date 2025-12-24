@@ -5,12 +5,10 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.util.List;
 
-@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,7 +24,7 @@ public class OrdemServico {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "numero_os", nullable = false, unique = true, length = 20)
+    @Column(name = "numero_os", unique = true, length = 20)
     private String numeroOs;
 
     @ManyToOne(fetch = FetchType.LAZY)

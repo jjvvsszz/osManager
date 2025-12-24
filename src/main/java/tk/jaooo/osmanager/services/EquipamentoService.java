@@ -1,6 +1,7 @@
 package tk.jaooo.osmanager.services;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import tk.jaooo.osmanager.exception.ResourceNotFoundException;
 import tk.jaooo.osmanager.model.Equipamento;
 import tk.jaooo.osmanager.repository.EquipamentoRepository;
@@ -30,13 +31,21 @@ public class EquipamentoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Equipamento não encontrado com o patrimônio: " + patrimonio));
     }
 
+    @Transactional
     public Equipamento criarEquipamento(Equipamento equipamento) {
         equipamentoRepository.findByPatrimonio(equipamento.getPatrimonio()).ifPresent(e -> {
             throw new IllegalArgumentException("Patrimônio '" + equipamento.getPatrimonio() + "' já cadastrado.");
         });
-        return equipamentoRepository.save(equipamento);
+
+        Equipamento equipamentoSalvo = equipamentoRepository.save(equipamento);
+
+        Long novoId = equipamentoSalvo.getId();
+
+        return equipamentoRepository.findById(novoId)
+                .orElseThrow(() -> new IllegalStateException("Falha ao re-buscar equipamento recém-criado com ID: " + novoId));
     }
 
+    @Transactional
     public Equipamento atualizarEquipamento(Long id, Equipamento dadosEquipamento) {
         Equipamento equipamento = buscarPorId(id);
 
@@ -45,7 +54,9 @@ public class EquipamentoService {
         equipamento.setMarca(dadosEquipamento.getMarca());
         equipamento.setModelo(dadosEquipamento.getModelo());
 
-        return equipamentoRepository.save(equipamento);
+        Equipamento equipamentoAtualizado = equipamentoRepository.save(equipamento);
+        return equipamentoRepository.findById(equipamentoAtualizado.getId())
+                .orElseThrow(() -> new IllegalStateException("Falha ao re-buscar equipamento recém-atualizado com ID: " + id));
     }
 
     public void deletarEquipamento(Long id) {

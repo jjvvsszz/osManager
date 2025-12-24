@@ -2,7 +2,6 @@ package tk.jaooo.osmanager.services;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -10,10 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 
 @Service
@@ -30,11 +27,15 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
 
-    private Key key;
+    private SecretKey key;
 
     @PostConstruct
     public void init() {
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    }
+
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
     }
 
     public String extractSessionCookie(String token) {
@@ -55,32 +56,24 @@ public class JwtUtil {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
+        return Jwts.parser()
+                .verifyWith(this.key)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
-    public String generateTokenForDemandanetSession(String sessionCookie, String idEscola) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put(SESSION_COOKIE_CLAIM, sessionCookie);
-        claims.put(ID_ESCOLA_CLAIM, idEscola);
-
-        // O "subject" agora pode ser o idEscola, pois identifica o contexto da sessão.
-        return createToken(claims, idEscola);
-    }
-
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateToken(String username, String sessionCookie, String idEscola) {
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + expiration);
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(now)
-                .setExpiration(expirationDate)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .subject(username)
+                .claim(SESSION_COOKIE_CLAIM, sessionCookie)
+                .claim(ID_ESCOLA_CLAIM, idEscola)
+                .issuedAt(now)
+                .expiration(expirationDate)
+                .signWith(this.key)
                 .compact();
     }
 

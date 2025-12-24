@@ -4,20 +4,20 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import tk.jaooo.osmanager.model.DemandanetSessionDetails;
+import tk.jaooo.osmanager.model.Tecnico;
+import tk.jaooo.osmanager.repository.TecnicoRepository;
 import tk.jaooo.osmanager.services.JwtUtil;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Optional;
 
 @Component
 public class JwtRequestFilter extends OncePerRequestFilter {
@@ -25,9 +25,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtRequestFilter.class);
 
     private final JwtUtil jwtUtil;
+    private final TecnicoRepository tecnicoRepository;
 
-    public JwtRequestFilter(JwtUtil jwtUtil) {
+    public JwtRequestFilter(JwtUtil jwtUtil, TecnicoRepository tecnicoRepository) {
         this.jwtUtil = jwtUtil;
+        this.tecnicoRepository = tecnicoRepository;
     }
 
     @Override
@@ -53,26 +55,32 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         try {
             if (jwtUtil.validateToken(jwt)) {
-                String sessionCookie = jwtUtil.extractSessionCookie(jwt);
-                String idEscola = jwtUtil.extractIdEscola(jwt);
+                String username = jwtUtil.extractUsername(jwt);
 
-                DemandanetSessionDetails sessionDetails = new DemandanetSessionDetails(sessionCookie, idEscola);
+                if (username != null) {
+                    Optional<Tecnico> tecnicoOpt = tecnicoRepository.findByUsernameAndRemovidoIsFalse(username);
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        sessionDetails,
-                        null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_ACTIVE_SESSION"))
-                );
+                    if (tecnicoOpt.isPresent()) {
+                        Tecnico tecnico = tecnicoOpt.get();
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        // Cria a autenticação usando o objeto TECNICO como Principal
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                tecnico,
+                                null,
+                                tecnico.getAuthorities()
+                        );
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-                logger.debug("Sessão do Demandanet validada e contexto de segurança populado para idEscola: {}", idEscola);
-            } else {
-                logger.warn("Token JWT recebido é inválido ou expirado.");
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                        logger.debug("Usuário '{}' autenticado via JWT.", username);
+                    } else {
+                        logger.warn("Token válido, mas usuário '{}' não encontrado no banco.", username);
+                    }
+                }
             }
         } catch (Exception e) {
-            logger.error("Erro ao processar o token JWT: {}", e.getMessage());
+            logger.error("Erro ao processar token JWT: {}", e.getMessage());
         }
 
         chain.doFilter(request, response);
