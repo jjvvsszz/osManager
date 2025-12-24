@@ -7,6 +7,7 @@ import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDetailsDTO;
+import tk.jaooo.osmanager.model.dto.DemandanetEmployeeDTO;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,5 +78,26 @@ public class DemandanetParserService {
 
         // Se for span, div, td, etc, pegamos o texto visível
         return el.text().trim();
+    }
+
+    public List<DemandanetEmployeeDTO> parseEmployeesFromScheduleForm(String html) {
+        Document doc = Jsoup.parse(html);
+        List<DemandanetEmployeeDTO> employees = new ArrayList<>();
+
+        Elements options = doc.select("#funcionarioIn option");
+
+        for (Element option : options) {
+            String value = option.val();
+            String text = option.text();
+
+            if (value != null && !value.isBlank()) {
+                employees.add(new DemandanetEmployeeDTO(
+                        value,
+                        text,
+                        option.hasAttr("selected")
+                ));
+            }
+        }
+        return employees;
     }
 }

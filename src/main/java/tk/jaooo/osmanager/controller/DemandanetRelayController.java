@@ -11,9 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 import tk.jaooo.osmanager.model.Tecnico;
-import tk.jaooo.osmanager.model.dto.ConcludeOrderRequestDTO;
-import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
-import tk.jaooo.osmanager.model.dto.ConsultedOrderDetailsDTO;
+import tk.jaooo.osmanager.model.dto.*;
 import tk.jaooo.osmanager.services.DemandanetClientService;
 import tk.jaooo.osmanager.services.DemandanetParserService;
 import tk.jaooo.osmanager.services.DemandanetSessionManager;
@@ -23,8 +21,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/demandanet")
@@ -121,6 +121,115 @@ public class DemandanetRelayController {
         } catch (Exception e) {
             logger.error("Erro ao concluir OS {}", dto.osNumber(), e);
             return ResponseEntity.internalServerError().body("Erro ao processar solicitação: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/funcionarios-agendamento/{idOrdem}")
+    public ResponseEntity<List<DemandanetEmployeeDTO>> listarFuncionariosParaAgendamento(
+            @PathVariable String idOrdem,
+            @AuthenticationPrincipal Tecnico solicitante) {
+
+        try {
+            Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
+            String cookie = sessionManager.getSessionForOwner(owner);
+
+            List<DemandanetEmployeeDTO> funcionarios = clientService.getEmployeesForScheduling(cookie, idOrdem).block();
+            return ResponseEntity.ok(funcionarios);
+
+        } catch (Exception e) {
+            logger.error("Erro ao buscar funcionários", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/atualizar-situacao")
+    public ResponseEntity<?> atualizarSituacaoEmMassa(
+            @RequestBody @Valid BatchStatusUpdateRequestDTO dto,
+            @AuthenticationPrincipal Tecnico solicitante) {
+
+        List<String> erros = new ArrayList<>();
+        List<String> sucessos = new ArrayList<>();
+
+        try {
+            Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
+            String cookie = sessionManager.getSessionForOwner(owner);
+
+            for (String osId : dto.ids()) {
+                try {
+                    String responseBody = clientService.updateOrderStatus(
+                            cookie,
+                            osId,
+                            dto.situacao(),
+                            dto.funcionarioId(),
+                            dto.dataPrevisao(),
+                            dto.observacao()
+                    ).block();
+
+                    if (sessionManager.isSessionExpiredResponse(responseBody)) {
+                        cookie = sessionManager.refreshSessionForOwner(owner);
+
+                        responseBody = clientService.updateOrderStatus(
+                                cookie,
+                                osId,
+                                dto.situacao(),
+                                dto.funcionarioId(),
+                                dto.dataPrevisao(),
+                                dto.observacao() // <- Passando o novo campo
+                        ).block();
+
+                        if (sessionManager.isSessionExpiredResponse(responseBody)) {
+                            erros.add("Falha de sessão na OS " + osId);
+                            continue;
+                        }
+                    }
+                    sucessos.add(osId);
+
+                } catch (IllegalArgumentException e) {
+                    erros.add("Erro na OS " + osId + ": " + e.getMessage());
+                    break;
+                } catch (Exception e) {
+                    logger.error("Erro ao atualizar OS {}", osId, e);
+                    erros.add("Erro na OS " + osId + ": " + e.getMessage());
+                }
+                Thread.sleep(200);
+            }
+
+            if (sucessos.isEmpty() && !erros.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(erros);
+            }
+
+            return ResponseEntity.ok()
+                    .body(java.util.Map.of(
+                            "mensagem", "Processamento finalizado",
+                            "sucessos", sucessos.size(),
+                            "falhas", erros
+                    ));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Erro crítico: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/contagem-status")
+    public ResponseEntity<?> getStatusCounts(@AuthenticationPrincipal Tecnico solicitante) {
+        try {
+            Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
+            String cookie = sessionManager.getSessionForOwner(owner);
+
+            Map<String, Integer> counts = clientService.getOrderStatusCounts(cookie).block();
+            return ResponseEntity.ok(counts);
+
+        } catch (Exception e) {
+            logger.error("Erro ao buscar contagem de status", e);
+            try {
+                Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
+                String cookie = sessionManager.refreshSessionForOwner(owner);
+                Map<String, Integer> counts = clientService.getOrderStatusCounts(cookie).block();
+                return ResponseEntity.ok(counts);
+            } catch (Exception refreshException) {
+                logger.error("Erro ao buscar contagem de status mesmo após renovar sessão", refreshException);
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body("Falha ao comunicar com o sistema legado.");
+            }
         }
     }
 
