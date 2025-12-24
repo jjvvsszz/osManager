@@ -5,8 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder; // Importar a classe correta
 import tk.jaooo.osmanager.model.dto.gemini.GeminiRequest;
 import tk.jaooo.osmanager.model.dto.gemini.GeminiResponse;
+
+import java.net.URI; // Importar a classe URI
 
 @Service
 public class GeminiService {
@@ -34,11 +37,15 @@ public class GeminiService {
         );
 
         try {
+            URI finalUri = UriComponentsBuilder
+                    .fromUriString(baseUrl)
+                    .queryParam("key", apiKey)
+                    .build()
+                    .toUri();
+            // ------------------------------------
+
             GeminiResponse response = webClient.post()
-                    .uri(uriBuilder -> uriBuilder
-                            .path(baseUrl)
-                            .queryParam("key", apiKey)
-                            .build())
+                    .uri(finalUri)
                     .bodyValue(GeminiRequest.of(prompt))
                     .retrieve()
                     .bodyToMono(GeminiResponse.class)
