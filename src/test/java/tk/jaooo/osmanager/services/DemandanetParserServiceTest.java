@@ -3,6 +3,7 @@ package tk.jaooo.osmanager.services;
 import org.junit.jupiter.api.Test;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDetailsDTO;
+import tk.jaooo.osmanager.model.dto.DemandanetEmployeeDTO;
 
 import java.util.List;
 
@@ -87,5 +88,27 @@ class DemandanetParserServiceTest {
 
         assertEquals("Não encontrado", detalhes.defeito());
         assertEquals("", detalhes.osNumber());
+    }
+
+    @Test
+    void deveParsearFuncionariosDoFormularioDeAgendamento() {
+        String htmlForm = """
+                <select class="form-control" id="funcionarioIn" name="funcionario">
+                    <option value=''>...</option>
+                    <option value='12345'>ALEXANDRE</option>
+                    <option value='67890' selected>JOAO</option>
+                </select>
+                """;
+
+        List<DemandanetEmployeeDTO> employees = parserService.parseEmployeesFromScheduleForm(htmlForm);
+
+        assertEquals(2, employees.size());
+        assertEquals("12345", employees.getFirst().id());
+        assertEquals("ALEXANDRE", employees.get(0).nome());
+        assertFalse(employees.get(0).selected());
+
+        assertEquals("67890", employees.get(1).id());
+        assertEquals("JOAO", employees.get(1).nome());
+        assertTrue(employees.get(1).selected());
     }
 }
