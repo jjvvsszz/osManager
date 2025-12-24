@@ -1,5 +1,7 @@
 package tk.jaooo.osmanager.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -28,9 +30,11 @@ public class DemandanetClientService {
 
     private WebClient webClient;
     private final DemandanetParserService parserService;
+    private final ObjectMapper objectMapper; // Adicionado para parsing manual
 
-    public DemandanetClientService(DemandanetParserService parserService) {
+    public DemandanetClientService(DemandanetParserService parserService, ObjectMapper objectMapper) {
         this.parserService = parserService;
+        this.objectMapper = objectMapper; // Injetado
     }
 
     @PostConstruct
@@ -77,14 +81,25 @@ public class DemandanetClientService {
                         .build())
                 .header("Cookie", sessionCookie)
                 .header("X-Requested-With", "XMLHttpRequest")
+                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .retrieve()
-                .bodyToMono(DemandanetStatusCountDTO.class)
-                .map(response -> response.data().listaSituacao().stream()
-                        .collect(Collectors.toMap(
-                                DemandanetStatusCountDTO.StatusItem::numero,
-                                item -> Integer.parseInt(item.qtd())
-                        ))
-                );
+                .bodyToMono(String.class)
+                .flatMap(bodyAsString -> {
+                    if (isSessionError(bodyAsString)) {
+                        return Mono.error(new IllegalStateException("Sessão expirada detectada na resposta de contagem."));
+                    }
+                    try {
+                        DemandanetStatusCountDTO response = objectMapper.readValue(bodyAsString, DemandanetStatusCountDTO.class);
+                        Map<String, Integer> counts = response.data().listaSituacao().stream()
+                                .collect(Collectors.toMap(
+                                        DemandanetStatusCountDTO.StatusItem::numero,
+                                        item -> Integer.parseInt(item.qtd())
+                                ));
+                        return Mono.just(counts);
+                    } catch (JsonProcessingException e) {
+                        return Mono.error(new RuntimeException("Falha ao processar a resposta JSON do legado.", e));
+                    }
+                });
     }
 
     public Mono<List<DemandanetEmployeeDTO>> getEmployeesForScheduling(String sessionCookie, String osId) {
@@ -125,7 +140,6 @@ public class DemandanetClientService {
                     var details = parserService.parseOrderDetails(html);
                     boolean isDeleted = "Apagada".equalsIgnoreCase(details.situacao()) || "Excluída".equalsIgnoreCase(details.situacao());
 
-                    // Se a OS estiver apagada e o objetivo não for apenas restaurar (Solicitada), restaura primeiro.
                     boolean needsPreliminaryRestore = isDeleted && targetStatus != 4;
                     Mono<String> preliminaryStep = needsPreliminaryRestore ? executeUpdate(sessionCookie, osId, "restaurarOrdem", null) : Mono.just("OK");
 
