@@ -12,6 +12,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
 import tk.jaooo.osmanager.model.dto.DemandanetEmployeeDTO;
 import tk.jaooo.osmanager.model.dto.DemandanetStatusCountDTO;
 
@@ -30,11 +31,11 @@ public class DemandanetClientService {
 
     private WebClient webClient;
     private final DemandanetParserService parserService;
-    private final ObjectMapper objectMapper; // Adicionado para parsing manual
+    private final ObjectMapper objectMapper;
 
     public DemandanetClientService(DemandanetParserService parserService, ObjectMapper objectMapper) {
         this.parserService = parserService;
-        this.objectMapper = objectMapper; // Injetado
+        this.objectMapper = objectMapper;
     }
 
     @PostConstruct
@@ -45,30 +46,26 @@ public class DemandanetClientService {
                 .build();
     }
 
-    public Mono<String> loginAndGetSessionCookie(String username, String password) {
-        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
-        formData.add("loginType", "admin");
-        formData.add("user", username);
-        formData.add("password", password);
-
-        return this.webClient.post()
-                .uri("/telaAcesso.php")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .bodyValue(formData)
-                .exchangeToMono(loginResponse -> {
-                    if (loginResponse.statusCode().is2xxSuccessful()) {
-                        return loginResponse.bodyToMono(String.class)
-                                .flatMap(htmlBody -> {
-                                    if (htmlBody != null && htmlBody.contains("id=iduser")) {
-                                        var sessionCookie = loginResponse.cookies().getFirst("PHPSESSID");
-                                        if (sessionCookie != null) {
-                                            return Mono.just(sessionCookie.getName() + "=" + sessionCookie.getValue());
-                                        }
-                                    }
-                                    return Mono.error(new RuntimeException("Credenciais rejeitadas ou cookie não gerado."));
-                                });
-                    }
-                    return Mono.error(new RuntimeException("Erro HTTP ao contatar Demandanet: " + loginResponse.statusCode()));
+    public Mono<List<ConsultedOrderDTO>> searchOrdersByPatrimony(String sessionCookie, String termoBusca) {
+        // Busca a lista completa (situacao = 5) e filtra em memória
+        return this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/ordem_servico_gerencia/src/php/read.php")
+                        .queryParam("funcao", "listar")
+                        .queryParam("situacao", "5")
+                        .queryParam("idEscola", idEscolaConfig)
+                        .build())
+                .header("Cookie", sessionCookie)
+                .header("X-Requested-With", "XMLHttpRequest")
+                .retrieve()
+                .bodyToMono(String.class)
+                .map(html -> {
+                    List<ConsultedOrderDTO> todas = parserService.parseOrderList(html);
+                    String termo = termoBusca.toLowerCase();
+                    return todas.stream()
+                            .filter(os -> (os.patrimonio() != null && os.patrimonio().toLowerCase().contains(termo)) ||
+                                    (os.defeito() != null && os.defeito().toLowerCase().contains(termo)))
+                            .collect(Collectors.toList());
                 });
     }
 
@@ -118,6 +115,33 @@ public class DemandanetClientService {
                 .map(parserService::parseEmployeesFromScheduleForm);
     }
 
+    public Mono<String> loginAndGetSessionCookie(String username, String password) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add("loginType", "admin");
+        formData.add("user", username);
+        formData.add("password", password);
+
+        return this.webClient.post()
+                .uri("/telaAcesso.php")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue(formData)
+                .exchangeToMono(loginResponse -> {
+                    if (loginResponse.statusCode().is2xxSuccessful()) {
+                        return loginResponse.bodyToMono(String.class)
+                                .flatMap(htmlBody -> {
+                                    if (htmlBody != null && htmlBody.contains("id=iduser")) {
+                                        var sessionCookie = loginResponse.cookies().getFirst("PHPSESSID");
+                                        if (sessionCookie != null) {
+                                            return Mono.just(sessionCookie.getName() + "=" + sessionCookie.getValue());
+                                        }
+                                    }
+                                    return Mono.error(new RuntimeException("Credenciais rejeitadas ou cookie não gerado."));
+                                });
+                    }
+                    return Mono.error(new RuntimeException("Erro HTTP ao contatar Demandanet: " + loginResponse.statusCode()));
+                });
+    }
+
     public Mono<String> updateOrderStatus(String sessionCookie, String osId, int targetStatus, String funcionarioId, String dataPrevisao, String observacao) {
         if (targetStatus == 3) {
             return executeStateChange(sessionCookie, osId, targetStatus, null, null, null);
@@ -148,6 +172,15 @@ public class DemandanetClientService {
                         return executeStateChange(sessionCookie, osId, targetStatus, funcionarioId, dataPrevisao, observacao);
                     });
                 });
+    }
+
+    public Mono<String> concludeOrder(String sessionCookie, String osId, String observacao) {
+        MultiValueMap<String, String> multipartData = new LinkedMultiValueMap<>();
+        multipartData.add("idOrdem", osId);
+        multipartData.add("observacao", observacao);
+        multipartData.add("imagens[]", "");
+        multipartData.add("funcao", "concluirOrdem");
+        return executeMultipartUpdate(sessionCookie, multipartData);
     }
 
     private Mono<String> executeStateChange(String sessionCookie, String osId, int targetStatus, String funcionarioId, String dataPrevisao, String observacao) {
@@ -184,15 +217,6 @@ public class DemandanetClientService {
         MultiValueMap<String, String> multipartData = new LinkedMultiValueMap<>();
         multipartData.add("funcao", "iniciarOrdem");
         multipartData.add("idOrdem", osId);
-        return executeMultipartUpdate(sessionCookie, multipartData);
-    }
-
-    public Mono<String> concludeOrder(String sessionCookie, String osId, String observacao) {
-        MultiValueMap<String, String> multipartData = new LinkedMultiValueMap<>();
-        multipartData.add("idOrdem", osId);
-        multipartData.add("observacao", observacao);
-        multipartData.add("imagens[]", "");
-        multipartData.add("funcao", "concluirOrdem");
         return executeMultipartUpdate(sessionCookie, multipartData);
     }
 

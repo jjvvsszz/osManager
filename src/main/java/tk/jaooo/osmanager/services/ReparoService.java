@@ -45,6 +45,14 @@ public class ReparoService {
         return reparoRepository.findByTecnico_Id(tecnicoId);
     }
 
+    public List<Reparo> listarReparosPorPatrimonio(String patrimonio) {
+        if (patrimonio == null || patrimonio.isBlank()) {
+            throw new IllegalArgumentException("Patrimonio inválido.");
+        } else {
+            return reparoRepository.findByOrdemServico_Equipamento_Patrimonio(patrimonio);
+        }
+    }
+
     public Reparo atualizarReparo(Long reparoId, Long novoTecnicoId, String novaDescricao) {
         Reparo reparoExistente = reparoRepository.findById(reparoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reparo não encontrado com o ID: " + reparoId));

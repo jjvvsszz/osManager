@@ -21,6 +21,10 @@ public class OrdemServicoService {
         return ordemServicoRepository.findAll();
     }
 
+    public List<OrdemServico> buscarPorPatrimonio(String patrimonio) {
+        return ordemServicoRepository.findByEquipamentoPatrimonio(patrimonio);
+    }
+
     public OrdemServico buscarPorId(Long id) {
         return ordemServicoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ordem de Serviço não encontrada com o ID: " + id));
