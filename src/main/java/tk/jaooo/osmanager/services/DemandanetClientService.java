@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import tk.jaooo.osmanager.model.dto.ConsultedOrderDTO;
@@ -40,14 +41,19 @@ public class DemandanetClientService {
 
     @PostConstruct
     private void initialize() {
+        final int size = 16 * 1024 * 1024;
+        final ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(size))
+                .build();
+
         this.webClient = WebClient.builder()
                 .baseUrl(this.demandanetBaseUrl)
                 .defaultHeader(HttpHeaders.USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/146.0")
+                .exchangeStrategies(strategies)
                 .build();
     }
 
     public Mono<List<ConsultedOrderDTO>> searchOrdersByPatrimony(String sessionCookie, String termoBusca) {
-        // Busca a lista completa (situacao = 5) e filtra em memória
         return this.webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/ordem_servico_gerencia/src/php/read.php")
@@ -62,6 +68,7 @@ public class DemandanetClientService {
                 .map(html -> {
                     List<ConsultedOrderDTO> todas = parserService.parseOrderList(html);
                     String termo = termoBusca.toLowerCase();
+
                     return todas.stream()
                             .filter(os -> (os.patrimonio() != null && os.patrimonio().toLowerCase().contains(termo)) ||
                                     (os.defeito() != null && os.defeito().toLowerCase().contains(termo)))
