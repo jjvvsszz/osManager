@@ -38,3 +38,7 @@ out/
 
 ### Wallet ###
 /src/main/resources/wallet/
+
+### Logs ###
+
+/logs/
