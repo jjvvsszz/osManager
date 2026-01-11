@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -54,6 +55,13 @@ public class DemandanetRelayController {
         this.httpClient = HttpClient.newBuilder().build();
     }
 
+    private void garantirPermissaoEscrita(Tecnico tecnico) {
+        if (tecnico.isEstagiario()) {
+            logger.warn("Tentativa de alteração bloqueada para estagiário: {} (ID: {})", tecnico.getUsername(), tecnico.getId());
+            throw new AccessDeniedException("Estagiários não têm permissão para alterar registros no sistema legado.");
+        }
+    }
+
     @GetMapping("/listar-ordens")
     public ResponseEntity<List<ConsultedOrderDTO>> listarOrdens(
             @RequestParam(defaultValue = "5") int situacao,
@@ -93,6 +101,8 @@ public class DemandanetRelayController {
     public ResponseEntity<?> concluirOrdem(
             @RequestBody @Valid ConcludeOrderRequestDTO dto,
             @AuthenticationPrincipal Tecnico solicitante) {
+
+        garantirPermissaoEscrita(solicitante);
 
         try {
             Tecnico owner = sessionManager.resolveCredentialOwner(solicitante);
@@ -146,6 +156,8 @@ public class DemandanetRelayController {
     public ResponseEntity<?> atualizarSituacaoEmMassa(
             @RequestBody @Valid BatchStatusUpdateRequestDTO dto,
             @AuthenticationPrincipal Tecnico solicitante) {
+
+        garantirPermissaoEscrita(solicitante);
 
         List<String> erros = new ArrayList<>();
         List<String> sucessos = new ArrayList<>();
@@ -238,6 +250,8 @@ public class DemandanetRelayController {
             @RequestBody(required = false) byte[] body,
             HttpServletRequest request,
             @AuthenticationPrincipal Tecnico solicitante) {
+
+        garantirPermissaoEscrita(solicitante);
 
         String prefix = "/api/demandanet/proxy";
         String uri = request.getRequestURI();
