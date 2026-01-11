@@ -40,5 +40,7 @@ out/
 /src/main/resources/wallet/
 
 ### Logs ###
+/logs
 
-/logs/
+### Qodana ###
+/qodana.yaml
