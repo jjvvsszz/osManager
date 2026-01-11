@@ -1,5 +1,8 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import tk.jaooo.osmanager.services.JwtUtil;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Autenticação", description = "Endpoints para login e obtenção de token JWT")
 public class AuthController {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
@@ -42,6 +46,14 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
     }
 
+    @Operation(
+            summary = "Realizar Login",
+            description = "Autentica o usuário localmente e no sistema legado (Demandanet). " +
+                    "Retorna um token JWT contendo a sessão do legado criptografada."
+    )
+    @ApiResponse(responseCode = "200", description = "Autenticação realizada com sucesso")
+    @ApiResponse(responseCode = "401", description = "Usuário ou senha inválidos")
+    @ApiResponse(responseCode = "502", description = "Falha de comunicação com o sistema legado")
     @PostMapping("/authenticate")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody @Valid DemandanetAuthRequestDTO authRequest) {
         logger.info("Tentativa de autenticação local para: {}", authRequest.username());

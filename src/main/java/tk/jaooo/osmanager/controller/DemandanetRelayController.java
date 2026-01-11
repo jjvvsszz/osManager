@@ -1,5 +1,7 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -29,6 +31,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/demandanet")
+@Tag(name = "Integração Demandanet", description = "Proxy e automação para o sistema legado")
 public class DemandanetRelayController {
 
     private static final Logger logger = LoggerFactory.getLogger(DemandanetRelayController.class);
@@ -62,6 +65,7 @@ public class DemandanetRelayController {
         }
     }
 
+    @Operation(summary = "Listar Ordens no Legado", description = "Busca a lista de OS no Demandanet via scraping.")
     @GetMapping("/listar-ordens")
     public ResponseEntity<List<ConsultedOrderDTO>> listarOrdens(
             @RequestParam(defaultValue = "5") int situacao,
@@ -82,6 +86,7 @@ public class DemandanetRelayController {
         return ResponseEntity.ok(ordens);
     }
 
+    @Operation(summary = "Detalhes da Ordem", description = "Busca detalhes completos de uma OS específica no legado.")
     @GetMapping("/detalhes-ordem/{idOrdem}")
     public ResponseEntity<ConsultedOrderDetailsDTO> detalhesOrdem(
             @PathVariable String idOrdem,
@@ -97,6 +102,10 @@ public class DemandanetRelayController {
         return ResponseEntity.ok(parserService.parseOrderDetails(html));
     }
 
+    @Operation(
+            summary = "Concluir Ordem",
+            description = "Envia comando para finalizar a OS no legado. **Bloqueado para estagiários.**"
+    )
     @PostMapping("/concluir")
     public ResponseEntity<?> concluirOrdem(
             @RequestBody @Valid ConcludeOrderRequestDTO dto,
@@ -134,6 +143,7 @@ public class DemandanetRelayController {
         }
     }
 
+    @Operation(summary = "Listar Funcionários para Agendamento")
     @GetMapping("/funcionarios-agendamento/{idOrdem}")
     public ResponseEntity<List<DemandanetEmployeeDTO>> listarFuncionariosParaAgendamento(
             @PathVariable String idOrdem,
@@ -152,6 +162,10 @@ public class DemandanetRelayController {
         }
     }
 
+    @Operation(
+            summary = "Atualização em Lote",
+            description = "Atualiza a situação (Agendar, Iniciar, Concluir) de múltiplas OS em sequência. **Bloqueado para estagiários.**"
+    )
     @PostMapping("/atualizar-situacao")
     public ResponseEntity<?> atualizarSituacaoEmMassa(
             @RequestBody @Valid BatchStatusUpdateRequestDTO dto,
@@ -222,6 +236,7 @@ public class DemandanetRelayController {
         }
     }
 
+    @Operation(summary = "Contagem de Status", description = "Retorna o dashboard de quantidades por status do legado.")
     @GetMapping("/contagem-status")
     public ResponseEntity<?> getStatusCounts(@AuthenticationPrincipal Tecnico solicitante) {
         try {
@@ -245,6 +260,10 @@ public class DemandanetRelayController {
         }
     }
 
+    @Operation(
+            summary = "Proxy Genérico",
+            description = "Repassa requisições arbitrárias para o Demandanet mantendo a sessão do usuário. Métodos de escrita são bloqueados para estagiários."
+    )
     @RequestMapping("/proxy/**")
     public ResponseEntity<byte[]> relayRequest(
             @RequestBody(required = false) byte[] body,

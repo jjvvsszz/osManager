@@ -2,9 +2,9 @@ package tk.jaooo.osmanager.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/print")
+@Tag(name = "Impressão e Documentos", description = "Geração de relatórios em PDF e integração de documentos do legado")
 public class PrintController {
 
     private static final Logger logger = LoggerFactory.getLogger(PrintController.class);

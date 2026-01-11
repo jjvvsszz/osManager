@@ -1,5 +1,7 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tk.jaooo.osmanager.model.OrdemServico;
@@ -9,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/os")
+@Tag(name = "Ordens de Serviço Internas", description = "Gestão de OS no banco de dados local")
 public class OrdemServicoController {
 
     private final OrdemServicoService ordemServicoService;
@@ -17,6 +20,7 @@ public class OrdemServicoController {
         this.ordemServicoService = ordemServicoService;
     }
 
+    @Operation(summary = "Listar todas as OS internas")
     @GetMapping
     public ResponseEntity<List<OrdemServico>> listarTodas() {
         return ResponseEntity.ok(ordemServicoService.listarTodas());
@@ -27,6 +31,7 @@ public class OrdemServicoController {
         return ResponseEntity.ok(ordemServicoService.buscarPorId(id));
     }
 
+    @Operation(summary = "Abrir nova OS interna")
     @PostMapping
     public ResponseEntity<OrdemServico> abrirOrdemServico(@RequestBody OrdemServico os) {
         OrdemServico novaOs = ordemServicoService.abrirOrdemServico(os);

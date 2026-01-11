@@ -1,5 +1,7 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tk.jaooo.osmanager.model.Reparo;
@@ -10,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/reparos")
+@Tag(name = "Reparos", description = "Registro detalhado de serviços realizados por técnicos")
 public class ReparoController {
 
     private final ReparoService reparoService;
@@ -18,6 +21,7 @@ public class ReparoController {
         this.reparoService = reparoService;
     }
 
+    @Operation(summary = "Registrar novo reparo")
     @PostMapping
     public ResponseEntity<Reparo> adicionarReparo(@RequestBody ReparoRequestDTO reparoRequestDTO) {
         Reparo novoReparo = reparoService.adicionarReparo(
@@ -28,6 +32,7 @@ public class ReparoController {
         return ResponseEntity.ok(novoReparo);
     }
 
+    @Operation(summary = "Listar reparos de uma OS")
     @GetMapping("/os/{osId}")
     public ResponseEntity<List<Reparo>> listarReparosPorOs(@PathVariable Long osId) {
         return ResponseEntity.ok(reparoService.listarReparosPorOrdemServico(osId));

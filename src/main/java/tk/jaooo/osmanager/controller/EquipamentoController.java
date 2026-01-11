@@ -1,5 +1,7 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/equipamentos")
+@Tag(name = "Gestão de Equipamentos", description = "Inventário e histórico híbrido")
 public class EquipamentoController {
 
     private static final Logger logger = LoggerFactory.getLogger(EquipamentoController.class);
@@ -62,6 +65,13 @@ public class EquipamentoController {
         return ResponseEntity.ok(equipamento);
     }
 
+    @Operation(
+            summary = "Histórico Completo do Ativo",
+            description = "Retorna um histórico unificado contendo: " +
+                    "1. Ordens de serviço do sistema legado (Web Scraping). " +
+                    "2. Ordens de serviço internas. " +
+                    "3. Reparos avulsos realizados no equipamento."
+    )
     @GetMapping("/historico/{patrimonio}")
     public ResponseEntity<AssetHistoryDTO> consultarHistoricoPatrimonio(
             @PathVariable String patrimonio,
