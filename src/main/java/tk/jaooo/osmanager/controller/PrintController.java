@@ -165,6 +165,6 @@ public class PrintController {
     private boolean isStatusImprimivel(String situacao) {
         if (situacao == null) return false;
         String s = situacao.trim().toLowerCase();
-        return s.contains("agendada") || s.contains("andamento");
+        return s.contains("agendado") || s.contains("andamento");
     }
 }
