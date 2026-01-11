@@ -40,6 +40,8 @@ dependencies {
     implementation("commons-codec:commons-codec")
     implementation("org.springframework.retry:spring-retry:2.0.12")
     implementation("org.springframework:spring-aspects")
+    implementation("com.github.librepdf:openpdf:3.0.0")
+    implementation("org.apache.pdfbox:pdfbox:3.0.6")
 
     // --- ORACLE CLOUD (OCI SDK) ---
     implementation(platform("com.oracle.oci.sdk:oci-java-sdk-bom:3.77.2"))

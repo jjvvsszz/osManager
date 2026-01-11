@@ -8,5 +8,6 @@ public record ConsultedOrderDetailsDTO(
         String descricao,
         String patrimonio,
         String situacao,
-        String dataCadastro
+        String dataCadastro,
+        String tecnicoResponsavel
 ) {}

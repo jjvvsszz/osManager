@@ -41,7 +41,7 @@ O projeto depende das seguintes variáveis de ambiente para rodar. Você pode co
 | `VAULT_ID` | OCID do Vault (Cofre) | `ocid1.vault.oc1.sa-saopaulo-1...` |
 | `VAULT_ENCRYPTION_KEY_ID` | OCID da Master Encryption Key | `ocid1.key.oc1.sa-saopaulo-1...` |
 | `GEMINI_API_KEY` | Chave de API do Google AI Studio | `AIzaSy...` |
-| `GEMINI_MODEL` | Modelo do Gemini a ser usado | `gemini-1.5-flash-latest` |
+| `GEMINI_MODEL` | Modelo do Gemini a ser usado | `gemini-flash-lite-latest` |
 
 ### 2. Configuração do Oracle Wallet
 

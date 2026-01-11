@@ -269,4 +269,34 @@ public class DemandanetClientService {
     private boolean isSessionError(String html) {
         return html != null && (html.contains("telaAcesso.php") || html.contains("Erro no comando sql") || html.contains("You have an error in your SQL syntax"));
     }
+
+    public Mono<byte[]> downloadLegacyPdf(String sessionCookie, String osId) {
+        return this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/documentos_escolares/lista.php")
+                        .queryParam("tipo", "202108120811") // Tipo fixo observado no cURL
+                        .queryParam("idOrdem", osId)
+                        .queryParam("idescola", idEscolaConfig)
+                        .build())
+                .header("Cookie", sessionCookie)
+                .header("Referer", demandanetBaseUrl + "/ordem_servico_gerencia/?idescola=" + idEscolaConfig)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/146.0")
+                .accept(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM)
+                .retrieve()
+                .bodyToMono(byte[].class);
+    }
+
+    public Mono<String> getOrderDetailsHtml(String sessionCookie, String osId) {
+        return this.webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/ordem_servico_gerencia/src/php/read.php")
+                        .queryParam("funcao", "detalheOrdem")
+                        .queryParam("idOrdem", osId)
+                        .queryParam("idEscola", idEscolaConfig)
+                        .build())
+                .header("Cookie", sessionCookie)
+                .header("X-Requested-With", "XMLHttpRequest")
+                .retrieve()
+                .bodyToMono(String.class);
+    }
 }
