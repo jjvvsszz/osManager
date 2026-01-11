@@ -32,14 +32,17 @@ public class Tecnico implements UserDetails {
 
     @Column(nullable = false)
     @JsonIgnore
+    @ToString.Exclude
     private String password;
 
     @Column(name = "credential_key")
+    @ToString.Exclude
     private String credentialKey;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "responsavel_id")
     @JsonIgnore
+    @ToString.Exclude
     private Tecnico responsavel;
 
     @Column(name = "is_estagiario", nullable = false)
