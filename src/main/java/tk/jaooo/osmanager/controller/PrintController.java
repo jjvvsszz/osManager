@@ -1,5 +1,10 @@
 package tk.jaooo.osmanager.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +43,20 @@ public class PrintController {
         this.pdfService = pdfService;
     }
 
+    @Operation(
+            summary = "Gera PDF Customizado em lote",
+            description = "Gera um PDF unificado com layout otimizado (2 vias por página). " +
+                    "**Importante:** Apenas ordens com situação **'Agendada'** ou **'Em Andamento'** serão processadas. " +
+                    "Ordens com outros status (ex: Concluída, Aberta) serão ignoradas silenciosamente."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "PDF gerado com sucesso",
+                    content = @Content(mediaType = "application/pdf")),
+            @ApiResponse(responseCode = "404", description = "Nenhuma das OS informadas estava apta para impressão (status inválido ou não encontrada)",
+                    content = @Content),
+            @ApiResponse(responseCode = "500", description = "Erro interno no servidor",
+                    content = @Content)
+    })
     @PostMapping("/custom")
     public ResponseEntity<byte[]> printCustomPdf(
             @RequestBody List<String> osIds,
@@ -58,10 +77,17 @@ public class PrintController {
                 }
 
                 if (html != null && !html.contains("Nenhuma ordem")) {
-                    detailsList.add(parserService.parseOrderDetails(html));
+                    ConsultedOrderDetailsDTO dto = parserService.parseOrderDetails(html);
+
+                    // --- VERIFICAÇÃO DE STATUS ADICIONADA AQUI ---
+                    if (isStatusImprimivel(dto.situacao())) {
+                        detailsList.add(dto);
+                    } else {
+                        logger.warn("OS {} ignorada na impressão. Status atual: {}", osId, dto.situacao());
+                    }
                 }
             } catch (Exception e) {
-                logger.error("Erro ao buscar dados da OS {} para impressão customizada", osId, e);
+                logger.error("Erro ao processar OS {} para impressão", osId, e);
             }
         }
 
@@ -77,6 +103,17 @@ public class PrintController {
                 .body(pdfBytes);
     }
 
+    @Operation(
+            summary = "Baixa e mescla PDFs originais do sistema legado",
+            description = "Baixa os arquivos PDF gerados pelo Demandanet e os une em um único arquivo. " +
+                    "O sistema legado retorna o PDF apenas se a OS estiver **'Agendada'** ou **'Em Andamento'**."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "PDF mesclado gerado com sucesso",
+                    content = @Content(mediaType = "application/pdf")),
+            @ApiResponse(responseCode = "404", description = "Nenhum PDF pôde ser baixado (provavelmente status inválidos)",
+                    content = @Content)
+    })
     @PostMapping("/legacy")
     public ResponseEntity<byte[]> printLegacyPdf(
             @RequestBody List<String> osIds,
@@ -91,21 +128,23 @@ public class PrintController {
             try {
                 byte[] pdf = clientService.downloadLegacyPdf(cookie, osId).block();
 
-                if (pdf != null && pdf.length > 4 && pdf[0] != 0x25) {
-                    String content = new String(pdf);
-                    if (sessionManager.isSessionExpiredResponse(content)) {
-                        logger.info("Sessão expirada ao baixar PDF da OS {}. Renovando...", osId);
-                        cookie = sessionManager.refreshSessionForOwner(owner);
-                        pdf = clientService.downloadLegacyPdf(cookie, osId).block();
-                    }
-                }
-
-                if (pdf != null && pdf.length > 0 && pdf[0] == 0x25) {
+                if (pdf != null && pdf.length > 4 && pdf[0] == '%' && pdf[1] == 'P' && pdf[2] == 'D' && pdf[3] == 'F') {
                     collectedPdfs.add(pdf);
                 } else {
-                    logger.warn("PDF da OS {} retornou vazio ou inválido (possível status não permitido pelo legado)", osId);
+                    if (pdf != null) {
+                        String content = new String(pdf);
+                        if (sessionManager.isSessionExpiredResponse(content)) {
+                            logger.info("Sessão expirada (Legacy PDF). Renovando...");
+                            cookie = sessionManager.refreshSessionForOwner(owner);
+                            byte[] retryPdf = clientService.downloadLegacyPdf(cookie, osId).block();
+                            if (retryPdf != null && retryPdf.length > 4 && retryPdf[0] == '%') {
+                                collectedPdfs.add(retryPdf);
+                            }
+                        } else {
+                            logger.warn("OS {} não retornou um PDF. Provavelmente status inválido.", osId);
+                        }
+                    }
                 }
-
             } catch (Exception e) {
                 logger.error("Erro ao baixar PDF legado da OS {}", osId, e);
             }
@@ -121,5 +160,11 @@ public class PrintController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=os_legacy_merged.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(mergedPdf);
+    }
+
+    private boolean isStatusImprimivel(String situacao) {
+        if (situacao == null) return false;
+        String s = situacao.trim().toLowerCase();
+        return s.contains("agendada") || s.contains("andamento");
     }
 }
